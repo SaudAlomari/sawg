@@ -32,18 +32,5 @@
     "image": null,
     "author": "SAWG",
     "addedAt": "2026-11-20"
-  },
-  {
-    "id": "p-sequence",
-    "question": "ما الرقم التالي؟ ٢، ٤، ٨، ١٦، ...",
-    "type": "text",
-    "options": [],
-    "answerHashes": [
-      "ddb704aafa7fbb95d476393fdbeb202ad6ea820f88f547c0785d5fc1a9519553"
-    ],
-    "hint": "كل رقم ضعف الرقم الذي قبله.",
-    "image": null,
-    "author": "SAWG",
-    "addedAt": "2026-11-20"
   }
 ]
