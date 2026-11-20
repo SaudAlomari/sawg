@@ -231,6 +231,15 @@ function adminView(app) {
         : `⚠️ Can't reach ${cfg.repo} with the saved key. It may have expired: paste a new one.`;
 
     $('#saves-save').onclick = () => doSave($('#saves-save'), async () => {
+      try {
+        await setUpSaves();
+      } catch (e) {
+        status.textContent = '❌ ' + e.message;
+        throw e;
+      }
+    });
+
+    async function setUpSaves() {
       const repo = $('#saves-repo').value.trim();
       const key = $('#saves-key').value.trim();
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('Saves repo should look like SaudAlomari/sawg-saves');
@@ -241,13 +250,25 @@ function adminView(app) {
       if (!r1.ok) throw new Error(`That key can't open ${repo}. Check the repo name and that the key has access to it.`);
       const info = await r1.json();
       if (info.permissions && !info.permissions.push) throw new Error('That key can only read. Set Contents to "Read and write".');
-      const r2 = await fetch(GH_API, { headers });
-      if (r2.ok && (await r2.json()).permissions?.push) {
+      // Make sure the key can't change the site repo. (The repo's "permissions"
+      // field shows the owner's rights, not the key's, so instead we send an
+      // empty save that changes nothing: a key with write access gets "422
+      // invalid request", any other key gets refused with 403/404.)
+      const probe = await fetch(`${GH_API}/contents/.saves-key-check`, {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (probe.status === 422) {
         throw new Error('That key can also change the site repo. Make a key that only has access to the saves repo.');
       }
       // Make sure usersSavedData.json exists.
       const testCfg = { repo, key };
-      await updateSaves(testCfg, () => {}, 'Set up saves');
+      try {
+        await updateSaves(testCfg, () => {}, 'Set up saves');
+      } catch (e) {
+        throw new Error(`Couldn't create usersSavedData.json in ${repo} (${e.message}). Check the key has Contents: Read and write.`);
+      }
       await updateRepoJson('settings', (s) => {
         s.savesRepo = repo;
         s.saveKey = hideKey(key);
@@ -255,7 +276,7 @@ function adminView(app) {
       $('#saves-key').value = '';
       saved('Saving is set up! Players will start saving in about a minute.');
       refresh();
-    });
+    }
   }
 
   // ----- pasted codes -----
