@@ -31,13 +31,12 @@ function loadProgress() {
   return { solved: [], skipped: [], hinted: [] };
 }
 
-// Jewels: +2 for each solved puzzle, −5 for each hint opened,
+// Jewels: +2 for each solved puzzle, minus what hints cost (2 small, 4 big),
 // +1 for each of your puzzles that is in the game.
 const JEWELS_PER_SOLVE = 2;
-const HINT_COST = 5;
 const MAX_ALTS = 5; // alternative answers on top of the main one
 function jewels(progress) {
-  return progress.solved.length * JEWELS_PER_SOLVE - progress.hinted.length * HINT_COST
+  return progress.solved.length * JEWELS_PER_SOLVE - hintSpent(progress.hinted)
     + puzzlesBy(me.username, puzzles, users).length * PUZZLE_GIFT;
 }
 function saveLocal(p) {
@@ -108,7 +107,7 @@ function remember(username) {
 
 // ---------- routing ----------
 
-const views = { play, submit, profile, admin: () => adminView(app) };
+const views = { play, submit, leaderboard: leaderboardView, profile, admin: () => adminView(app) };
 
 function route() {
   const nav = document.getElementById('nav');
@@ -268,11 +267,11 @@ function play() {
     const solved = puzzles.filter((x) => progress.solved.includes(x.id)).length;
     $('#done-score').textContent = `حللت ${solved} من ${puzzles.length}.`;
     $('#done-jewels').textContent = `💎 ${jewels(progress)} جوهرة`;
-    $('#restart').onclick = () => {
-      if (!confirm('تبدأ من جديد من اللغز الأول؟ سيُمسح تقدمك وجواهرك على هذا الجهاز.')) return;
-      saveProgress({ solved: [], skipped: [], hinted: [] });
-      play();
-    };
+    // Check for new puzzles; if some arrived, show the next one.
+    const before = puzzles.length;
+    refreshData().then(() => {
+      if (puzzles.length !== before && (location.hash.slice(1) || 'play') === 'play' && app.querySelector('#done')) play();
+    });
     return;
   }
 
@@ -299,37 +298,43 @@ function play() {
     $('#p-text').focus();
   }
 
-  // Hint: costs jewels, and is free to look at again once bought.
-  const hintBtn = $('#p-hint');
-  const revealHint = () => {
-    $('#p-hint-text').textContent = '💡 ' + p.hint;
-    $('#p-hint-text').hidden = false;
-    hintBtn.hidden = true;
+  // Hints: each costs jewels (small 2, big 4) and stays open once bought.
+  const hintsBox = $('#p-hints');
+  const showHints = () => {
+    hintsBox.replaceChildren();
+    puzzleHints(p).forEach((h, i) => {
+      const size = h.size === 'small' ? 'small' : 'big';
+      const label = size === 'small' ? 'تلميح صغير' : 'تلميح كبير';
+      const cost = HINT_COSTS[size];
+      if (hintOpened(progress.hinted, p, i)) {
+        hintsBox.append(el('p', { className: 'hint', textContent: `💡 ${label}: ${h.text}` }));
+        return;
+      }
+      if (solvedNow) return;
+      const b = el('button', { type: 'button', textContent: `💡 ${label} (${cost} 💎)` });
+      if (jewels(progress) < cost) {
+        b.disabled = true;
+        b.title = `تحتاج ${cost} جواهر`;
+      }
+      b.onclick = () => {
+        if (!confirm(`تستخدم ${cost} جواهر لرؤية ${label}؟`)) return;
+        progress.hinted.push(hintKey(p, i, size));
+        saveProgress(progress);
+        showJewels();
+        showHints();
+      };
+      hintsBox.append(b);
+    });
   };
-  if (!p.hint) {
-    hintBtn.disabled = true;
-    hintBtn.textContent = 'لا يوجد تلميح';
-  } else if (progress.hinted.includes(p.id)) {
-    revealHint();
-  } else if (jewels(progress) < HINT_COST) {
-    hintBtn.disabled = true;
-    hintBtn.title = `تحتاج ${HINT_COST} جواهر للتلميح`;
-    hintBtn.textContent = `💡 التلميح يحتاج ${HINT_COST} 💎`;
-  } else {
-    hintBtn.onclick = () => {
-      if (!confirm(`تستخدم ${HINT_COST} جواهر لرؤية التلميح؟`)) return;
-      progress.hinted.push(p.id);
-      saveProgress(progress);
-      showJewels();
-      revealHint();
-    };
-  }
+  let solvedNow = false;
+  showHints();
 
   const fb = $('#p-feedback');
   const finish = () => {
     $('#p-submit').hidden = true;
     $('#p-skip').hidden = true;
-    $('#p-hint').hidden = true;
+    solvedNow = true;
+    showHints();
     $('#p-text').disabled = true;
     $('#p-options').querySelectorAll('button').forEach((x) => (x.disabled = true));
     $('#p-next').hidden = false;
@@ -393,6 +398,27 @@ function submit() {
     input.focus();
   };
 
+  // Up to 4 hints, each small or big.
+  const hintsBox = app.querySelector('#s-hints');
+  const addHint = app.querySelector('#s-add-hint');
+  const updateAddHint = () => (addHint.hidden = hintsBox.children.length >= MAX_HINTS);
+  addHint.onclick = () => {
+    const input = el('input', { placeholder: `التلميح ${hintsBox.children.length + 1}`, maxLength: 300 });
+    const size = el('select', { title: 'حجم التلميح' },
+      el('option', { value: 'small', textContent: 'صغير (٢ 💎)' }),
+      el('option', { value: 'big', textContent: 'كبير (٤ 💎)' }));
+    const remove = el('button', { type: 'button', className: 'link', textContent: '✕', title: 'احذف' });
+    const row = el('div', { className: 'hint-row' }, input, size, remove);
+    remove.onclick = () => {
+      row.remove();
+      hintsBox.querySelectorAll('input').forEach((x, i) => (x.placeholder = `التلميح ${i + 1}`));
+      updateAddHint();
+    };
+    hintsBox.append(row);
+    updateAddHint();
+    input.focus();
+  };
+
   for (const [input, preview] of [[form.qImage, '#s-q-preview'], [form.aImage, '#s-a-preview']]) {
     input.onchange = () => {
       const f = input.files[0];
@@ -418,50 +444,55 @@ function submit() {
       if (options.length < 2) return showMsg(err, 'الاختيار من متعدد يحتاج خيارين على الأقل.');
       if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
     }
+    const hints = [...hintsBox.querySelectorAll('.hint-row')]
+      .map((row) => ({ text: row.querySelector('input').value.trim().slice(0, 300), size: row.querySelector('select').value }))
+      .filter((h) => h.text);
+    const cfg = savesConfig(settings);
+    if (!cfg) return showMsg(err, 'إرسال الألغاز غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
     const qFile = form.qImage.files[0];
     const aFile = form.aImage.files[0];
-    let images = null;
-    if (qFile || aFile) {
-      const cfg = savesConfig(settings);
-      if (!cfg) return showMsg(err, 'رفع الصور غير متاح بعد. اطلب من المشرف تفعيل الحفظ، أو أرسل اللغز بدون صور.');
-      submitBtn.disabled = true;
-      submitBtn.textContent = '⏳ جارٍ رفع الصور…';
-      try {
-        const pid = Date.now().toString(36) + randomHex(3);
-        images = {};
-        for (const [key, file, label] of [['q', qFile, 'صورة السؤال'], ['a', aFile, 'صورة الإجابة']]) {
-          if (!file) continue;
-          const pic = await shrinkPicture(file).catch(() => null);
-          if (!pic) throw new Error(`${label} ليست صورة صالحة.`);
-          if (pic.bytes.length > 2 * 1024 * 1024) throw new Error(`${label} كبيرة جدًا. اختر صورة أصغر.`);
-          const path = `pending/${pid}-${key}.${pic.ext}`;
-          await savesPutFile(cfg, path, pic.bytes, `Puzzle picture from ${me.username}`);
-          images[key] = path;
-        }
-      } catch (e2) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'احصل على رمز اللغز';
-        return showMsg(err, e2.message.startsWith('upload') ? 'تعذّر رفع الصورة. تحقق من الإنترنت وحاول مرة أخرى.' : e2.message);
+    submitBtn.disabled = true;
+    try {
+      const id = 'p-' + Date.now().toString(36) + randomHex(2);
+      const images = {};
+      for (const [key, file, label] of [['q', qFile, 'صورة السؤال'], ['a', aFile, 'صورة الإجابة']]) {
+        if (!file) continue;
+        submitBtn.textContent = '⏳ جارٍ رفع الصور…';
+        const pic = await shrinkPicture(file).catch(() => null);
+        if (!pic) throw new Error(`${label} ليست صورة صالحة.`);
+        if (pic.bytes.length > 2 * 1024 * 1024) throw new Error(`${label} كبيرة جدًا. اختر صورة أصغر.`);
+        const path = `pending/${id}-${key}.${pic.ext}`;
+        await savesPutFile(cfg, path, pic.bytes, `Puzzle picture from ${me.username}`);
+        images[key] = path;
       }
+      submitBtn.textContent = '⏳ جارٍ الإرسال…';
+      await updateSaves(cfg, (all) => {
+        all[id] = {
+          id,
+          question: form.question.value.trim().slice(0, 1000),
+          type,
+          options,
+          // Lightly scrambled so the answers aren't sitting there in plain text.
+          answersHidden: hideKey(JSON.stringify(answers)),
+          hints,
+          images,
+          author: me.displayName,
+          by: me.username,
+          submittedAt: new Date().toISOString(),
+        };
+      }, `Puzzle from ${me.username}`, PENDING_FILE);
+    } catch (e2) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'أرسل اللغز';
+      return showMsg(err, /^(upload|saves)/.test(e2.message) ? 'تعذّر الإرسال. تحقق من الإنترنت وحاول مرة أخرى.' : e2.message);
     }
-    const code = makeCode('PUZZLE', {
-      question: form.question.value.trim().slice(0, 1000),
-      type,
-      options,
-      answers,
-      hint: form.hint.value.trim().slice(0, 300),
-      images,
-      author: me.displayName,
-      by: me.username,
-    });
-    codeView({
-      title: 'رمز لغزك',
-      text: 'أرسل هذا الرمز إلى المشرف' + (images ? '، وصورك وصلت إليه مع الرمز.' : '.') + ' سيظهر لغزك في اللعبة بعد الموافقة عليه.',
-      code,
-      after: 'لا تشاركه مع اللاعبين الآخرين، ففيه الإجابة!',
-      back: 'أضف لغزًا آخر',
-      onBack: submit,
-    });
+    mount('t-code');
+    app.querySelector('#c-title').textContent = '✅ وصل لغزك!';
+    app.querySelector('#c-text').textContent = 'أُرسل لغزك إلى المشرف، وسيظهر في اللعبة بعد موافقته. تحصل على جوهرة هدية عند قبوله.';
+    app.querySelector('#c-code').hidden = true;
+    app.querySelector('#c-after').textContent = '';
+    app.querySelector('#c-back').textContent = 'أضف لغزًا آخر';
+    app.querySelector('#c-back').onclick = submit;
   };
 }
 
@@ -491,7 +522,40 @@ function profile() {
   $('#pr-jewels').textContent = `💎 ${jewels(progress)}`;
   $('#pr-solved').textContent = puzzles.filter((p) => progress.solved.includes(p.id)).length;
   $('#pr-live').textContent = mine.length;
-  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح يكلّف ٥ جواهر.';
+  $('#pr-pending').textContent = '…';
+  const cfg0 = savesConfig(settings);
+  if (cfg0) {
+    readSaves(cfg0, PENDING_FILE)
+      .then(({ data }) => ($('#pr-pending').textContent = Object.values(data).filter((x) => x.by === me.username).length))
+      .catch(() => ($('#pr-pending').textContent = '—'));
+  } else $('#pr-pending').textContent = '—';
+
+  // Hide my name on the leaderboard.
+  const anon = $('#pr-anon');
+  const anonMsg = $('#pr-anon-msg');
+  anon.checked = !!(saves[me.username] || {}).anonymous;
+  anon.onchange = async () => {
+    const cfg = savesConfig(settings);
+    if (!cfg) {
+      anon.checked = !anon.checked;
+      return (anonMsg.textContent = 'غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
+    }
+    anon.disabled = true;
+    anonMsg.textContent = '⏳ جارٍ الحفظ…';
+    const value = anon.checked;
+    try {
+      saves = await updateSaves(cfg, (all) => {
+        all[me.username] = { ...all[me.username], anonymous: value };
+      }, `Leaderboard: ${me.username}`);
+      anonMsg.textContent = value ? 'تم ✓ تظهر في لوحة المتصدرين باسم "مجهول".' : 'تم ✓ يظهر اسمك في لوحة المتصدرين.';
+    } catch {
+      anon.checked = !value;
+      anonMsg.textContent = 'تعذّر الحفظ. تحقق من الإنترنت وحاول مرة أخرى.';
+    } finally {
+      anon.disabled = false;
+    }
+  };
+  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر.';
 
   const list = $('#pr-puzzles');
   if (!mine.length) list.append(el('li', { className: 'empty muted', textContent: 'لم يُقبل لك لغز بعد. أضف لغزًا من صفحة "أضف لغزًا".' }));
@@ -527,6 +591,47 @@ function profile() {
       btn.disabled = false;
     }
   };
+}
+
+// Fetch the latest players, puzzles and saves (new puzzles may have been added).
+async function refreshData() {
+  try {
+    const [u, p, s] = await loadData();
+    users = u;
+    puzzles = p;
+    settings = s || {};
+  } catch {}
+  const cfg = savesConfig(settings);
+  if (cfg) {
+    try {
+      saves = (await readSaves(cfg)).data;
+    } catch {}
+  }
+}
+
+async function leaderboardView() {
+  mount('t-leaderboard');
+  const board = app.querySelector('#board');
+  await refreshData();
+  if (location.hash !== '#leaderboard') return; // they moved on while it loaded
+  // My own progress on this device is the freshest.
+  const mineNow = { ...saves, [me.username]: { ...saves[me.username], ...loadProgress() } };
+  const rows = leaderboard(users, puzzles, mineNow);
+  board.replaceChildren();
+  if (!rows.length) board.append(el('li', { className: 'muted', textContent: 'لا يوجد لاعبون بعد.' }));
+  let rank = 0;
+  rows.forEach((r, i) => {
+    const prev = rows[i - 1];
+    if (!prev || prev.solved !== r.solved || prev.jewels !== r.jewels) rank = i + 1;
+    const medal = ['🥇', '🥈', '🥉'][rank - 1] || String(rank);
+    let name = r.anonymous ? 'مجهول' : r.name;
+    if (r.anonymous && me.admin) name += ` (${r.name})`;
+    if (r.username === me.username) name += ' (أنت)';
+    board.append(el('li', { className: r.username === me.username ? 'me' : '' },
+      el('span', { className: 'rank', textContent: medal }),
+      el('span', { className: 'who', textContent: name }),
+      el('span', { className: 'stats', textContent: `✅ ${r.solved} · 💎 ${r.jewels}` })));
+  });
 }
 
 // ---------- start ----------

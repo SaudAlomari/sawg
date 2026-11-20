@@ -110,6 +110,7 @@ function adminView(app) {
     app.querySelectorAll('[data-admin-tab]').forEach((x) => x.classList.toggle('active', x.dataset.adminTab === name));
     $('#a-users').hidden = name !== 'users';
     $('#a-puzzles').hidden = name !== 'puzzles';
+    $('#a-pending').hidden = name !== 'pending';
   };
   app.querySelectorAll('[data-admin-tab]').forEach((b) => (b.onclick = () => showTab(b.dataset.adminTab)));
   showTab(adminTab);
@@ -153,6 +154,7 @@ function adminView(app) {
       renderUsers(users, saves, puzzles);
       renderPuzzles(puzzles, users, saves);
       renderSaves(settings, cfg, saves);
+      renderPending(cfg ? await readSaves(cfg, PENDING_FILE).then((r) => r.data).catch(() => ({})) : null);
     } catch (e) {
       $('#a-users').replaceChildren(el('li', { className: 'error', textContent: e.message }));
     }
@@ -309,7 +311,7 @@ function adminView(app) {
       return showMsg(err, "That doesn't look like a SAWG code. Make sure you copied all of it.");
     }
     if (parsed.kind === 'USER') previewUser(parsed.data);
-    else previewPuzzle(parsed.data);
+    else $('#preview').append(el('div', { className: 'list' }, puzzleCard(parsed.data, false)));
   };
 
   function previewUser(u) {
@@ -363,21 +365,26 @@ function adminView(app) {
     return path;
   }
 
-  function previewPuzzle(p) {
+  // A puzzle waiting for approval: from the pending list (or an old puzzle code).
+  function puzzleCard(p, fromPending) {
     const cfg = lastCfg || savesConfig(settings);
-    const pending = p.images && typeof p.images === 'object' ? p.images : {};
-    const pendingPaths = Object.values(pending).filter((x) => typeof x === 'string' && /^pending\/[\w.-]+$/.test(x));
+    const images = p.images && typeof p.images === 'object' ? p.images : {};
+    const pendingPaths = Object.values(images).filter((x) => typeof x === 'string' && /^pending\/[\w.-]+$/.test(x));
+    const hints = puzzleHints(p).slice(0, MAX_HINTS);
     const q = pictureInput();
     const a = pictureInput();
 
     // Pictures the player uploaded: show them, and use them unless replaced.
     for (const [key, pic] of [['q', q], ['a', a]]) {
-      const path = pending[key];
-      if (!pendingPaths.includes(path)) continue;
+      const path = images[key];
+      if (!pendingPaths.includes(path)) {
+        pic.note.textContent = 'None. You can attach one:';
+        continue;
+      }
       pic.pendingPath = path;
       pic.note.textContent = '⏳ Loading their picture…';
       if (!cfg) {
-        pic.note.textContent = '⚠️ Saving progress is not set up, so their picture can\'t be loaded.';
+        pic.note.textContent = "⚠️ Saving progress is not set up, so their picture can't be loaded.";
         continue;
       }
       savesGetBlob(cfg, path).then((blob) => {
@@ -390,11 +397,15 @@ function adminView(app) {
       }).catch(() => (pic.note.textContent = '⚠️ Their picture could not be loaded. You can attach one instead.'));
     }
 
-    const removePending = () => cfg && Promise.all(pendingPaths.map((x) => savesDeleteFile(cfg, x, 'Remove puzzle picture').catch(() => {})));
+    const removePending = async () => {
+      if (!cfg) return;
+      await Promise.all(pendingPaths.map((x) => savesDeleteFile(cfg, x, 'Remove puzzle picture').catch(() => {})));
+      if (fromPending) await updateSaves(cfg, (all) => delete all[p.id], `Done with puzzle ${p.id}`, PENDING_FILE);
+    };
 
     const btn = el('button', { className: 'primary', textContent: 'Approve and add to the game' });
     btn.onclick = () => doSave(btn, async () => {
-      const id = 'p-' + Date.now().toString(36);
+      const id = /^p-[\w-]+$/.test(p.id || '') ? p.id : 'p-' + Date.now().toString(36);
       const pick = (pic, what) => {
         const f = pic.input.files[0];
         if (f) return { bytes: f.arrayBuffer(), ext: checkPicture(f, what) };
@@ -408,13 +419,14 @@ function adminView(app) {
       const answerImage = ap ? await uploadPicture(await ap.bytes, `images/${id}-answer.${ap.ext}`, 'answer picture', id) : null;
       const answerHashes = await Promise.all(p.answers.map((x) => hashAnswer(id, x)));
       await updateRepoJson('puzzles', (all) => {
+        if (all.some((x) => x.id === id)) return;
         all.push({
           id,
           question: String(p.question).slice(0, 1000),
           type: p.type === 'choice' ? 'choice' : 'text',
           options: p.type === 'choice' ? p.options.slice(0, 6) : [],
           answerHashes,
-          hint: String(p.hint || '').slice(0, 300),
+          hints: hints.map((h) => ({ text: String(h.text).slice(0, 300), size: h.size === 'small' ? 'small' : 'big' })),
           image,
           answerImage,
           author: String(p.author || 'Someone').slice(0, 40),
@@ -423,34 +435,45 @@ function adminView(app) {
         });
       }, `Add puzzle ${id} by ${p.by || p.author}`);
       await removePending();
-      clearCode();
+      if (!fromPending) clearCode();
       saved(`Puzzle added! It shows in the game in about a minute.${p.by ? ` ${p.author} gets 💎 ${PUZZLE_GIFT}.` : ''}`);
       refresh();
     });
 
     const reject = el('button', { className: 'bad', textContent: 'Reject' });
     reject.onclick = () => {
-      if (!confirm('Reject this puzzle? Their pictures will be deleted.')) return;
+      if (!confirm('Reject this puzzle? It and its pictures will be deleted.')) return;
       doSave(reject, async () => {
         await removePending();
-        clearCode();
+        if (!fromPending) clearCode();
         saved('Puzzle rejected.');
+        refresh();
       });
     };
 
-    $('#preview').append(el('div', { className: 'list' }, el('li', {},
-      el('div', { className: 'meta', textContent: `Puzzle from ${p.author}${p.by ? ' (@' + p.by + ')' : ''}` }),
+    return el('li', {},
+      el('div', { className: 'meta', textContent: `Puzzle from ${p.author}${p.by ? ' (@' + p.by + ')' : ''}${p.submittedAt ? ' · ' + p.submittedAt.slice(0, 10) : ''}` }),
       el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
       el('div', { className: 'meta', textContent: (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
-      p.hint ? el('div', { className: 'meta', textContent: 'Hint: ' + p.hint }) : null,
-      el('h3', { textContent: 'Question picture' }), q.note,
-      el('label', {}, q.pendingPath ? '' : (p.hasImage ? 'They said there is one, attach it here:' : 'Optional:'), q.input),
-      q.img,
-      el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note,
-      el('label', {}, a.pendingPath ? '' : (p.hasAnswerImage ? 'They said there is one, attach it here:' : 'Optional:'), a.input),
-      a.img,
-      el('div', { className: 'row' }, btn, reject))));
+      ...hints.map((h, i) => el('div', { className: 'meta', textContent: `Hint ${i + 1} (${h.size === 'small' ? 'small, 2 💎' : 'big, 4 💎'}): ${h.text}` })),
+      el('h3', { textContent: 'Question picture' }), q.note, q.input, q.img,
+      el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note, a.input, a.img,
+      el('div', { className: 'row' }, btn, reject));
+  }
+
+  function renderPending(pending) {
+    const list = $('#a-pending');
+    list.replaceChildren();
+    const items = Object.values(pending || {}).sort((x, y) => String(x.submittedAt).localeCompare(String(y.submittedAt)));
+    $('#pending-count').textContent = items.length || '';
+    if (!pending) list.append(el('li', { className: 'empty', textContent: 'Set up saving progress (below) so players can send puzzles.' }));
+    else if (!items.length) list.append(el('li', { className: 'empty', textContent: 'No puzzles waiting. 🎉' }));
+    items.forEach((p) => {
+      let answers = [];
+      try { answers = JSON.parse(revealKey(p.answersHidden)); } catch {}
+      list.append(puzzleCard({ ...p, answers }, true));
+    });
   }
 
   refresh();

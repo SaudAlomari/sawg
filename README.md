@@ -13,7 +13,9 @@ A family & friends trivia and puzzle game that runs entirely on GitHub, with no 
 1. **Sign up.** A player picks a username and password. The site gives them a **sign-up code** (the password is scrambled inside it), which they send to the admin, for example on WhatsApp.
 2. **Activate.** The admin signs in, opens the **Admin** tab, pastes the code and taps **Activate**. The user is saved into `data/users.json`. About a minute later they can sign in.
 3. **Play.** Puzzles are shown one at a time, page by page. Wrong answers can be retried, or players can skip.
-   - **Jewels 💎:** each solved puzzle earns 2 jewels. Opening a hint costs 5 jewels; the hint button is greyed out when the puzzle has no hint or the player has fewer than 5 jewels. A bought hint stays visible for free.
+   - **Jewels 💎:** each solved puzzle earns 2 jewels, and each of your puzzles in the game gives 1. A puzzle can have up to 4 hints; a small hint costs 2 jewels and a big one 4. A bought hint stays visible for free.
+   - **Puzzles:** players send puzzles from the site; they wait under Admin → Pending (stored in `pendingPuzzles.json` in the saves repo) until approved. Codes are only for sign-ups.
+   - **Leaderboard:** ranks players by puzzles solved, then jewels. Players can show as "مجهول" (set in their profile); the admin still sees who.
 4. **Submit a puzzle.** Players fill in the puzzle form and get a **puzzle code** to send to the admin, with a picture if there is one. The admin pastes the code in Admin, attaches the picture and taps **Approve**. It's saved into `data/puzzles.json`.
 
 The admin can also deactivate or delete users and delete puzzles from the Admin page. To add your own puzzle, fill in *Submit a puzzle*, then paste the code in Admin.

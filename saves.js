@@ -9,6 +9,7 @@
 // It is not real protection against a determined programmer.
 
 const SAVES_FILE = 'usersSavedData.json';
+const PENDING_FILE = 'pendingPuzzles.json'; // puzzles waiting for the admin, by id
 const MASK = 'sawg-trivia-saves';
 
 function hideKey(key) {
@@ -51,8 +52,8 @@ function b64ToUtf8(b64) {
   return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
 }
 
-async function readSaves(cfg) {
-  const res = await savesFetch(cfg, { method: 'GET' });
+async function readSaves(cfg, file = SAVES_FILE) {
+  const res = await savesFetch(cfg, { method: 'GET' }, file);
   if (res.status === 404) return { data: {}, sha: null };
   if (!res.ok) throw new Error(`saves read failed (${res.status})`);
   const body = await res.json();
@@ -60,15 +61,15 @@ async function readSaves(cfg) {
 }
 
 // Change usersSavedData.json and save it, retrying if someone else saved at the same moment.
-async function updateSaves(cfg, change, message) {
+async function updateSaves(cfg, change, message, file = SAVES_FILE) {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const { data, sha } = await readSaves(cfg);
+    const { data, sha } = await readSaves(cfg, file);
     change(data);
     const res = await savesFetch(cfg, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, content: utf8ToB64(JSON.stringify(data, null, 2) + '\n'), ...(sha ? { sha } : {}) }),
-    });
+    }, file);
     if (res.ok) return data;
     if (res.status !== 409 && res.status !== 422) throw new Error(`saves write failed (${res.status})`);
     await new Promise((r) => setTimeout(r, 300 + Math.random() * 700));
@@ -135,6 +136,56 @@ function puzzlesBy(username, puzzles, users) {
   return puzzles.filter((p) => ownerOf(p, users) === username);
 }
 
+// ---------- hints ----------
+// A puzzle has up to 4 hints, each small (2 jewels) or big (4 jewels).
+// Opened hints are saved as "puzzleId#number#s" or "…#b". Older saves hold
+// just the puzzle id, from when there was one hint that cost 5.
+
+const MAX_HINTS = 4;
+const HINT_COSTS = { small: 2, big: 4 };
+const OLD_HINT_COST = 5;
+
+function puzzleHints(p) {
+  if (Array.isArray(p.hints)) return p.hints.filter((h) => h && h.text);
+  return p.hint ? [{ text: p.hint, size: 'big' }] : [];
+}
+
+function hintKey(p, i, size) {
+  return `${p.id}#${i}#${size === 'small' ? 's' : 'b'}`;
+}
+
+function hintOpened(hinted, p, i) {
+  const old = !Array.isArray(p.hints) && hinted.includes(p.id);
+  return old || hinted.some((h) => h.startsWith(`${p.id}#${i}#`));
+}
+
+function hintSpent(hinted) {
+  return (hinted || []).reduce((sum, h) => {
+    const m = /#(s|b)$/.exec(h);
+    return sum + (m ? (m[1] === 's' ? HINT_COSTS.small : HINT_COSTS.big) : OLD_HINT_COST);
+  }, 0);
+}
+
 function savedJewels(entry, gifts = 0) {
-  return (entry ? (entry.solved || []).length * 2 - (entry.hinted || []).length * 5 : 0) + gifts * PUZZLE_GIFT;
+  return (entry ? (entry.solved || []).length * 2 - hintSpent(entry.hinted) : 0) + gifts * PUZZLE_GIFT;
+}
+
+// ---------- leaderboard ----------
+// Ranked by puzzles solved, then jewels. Players can hide their name.
+
+function leaderboard(users, puzzles, saves) {
+  const live = new Set(puzzles.map((p) => p.id));
+  return users
+    .filter((u) => u.status === 'active')
+    .map((u) => {
+      const entry = (saves && saves[u.username]) || {};
+      return {
+        username: u.username,
+        name: displayNameOf(u.username, users, saves),
+        anonymous: !!entry.anonymous,
+        solved: (entry.solved || []).filter((id) => live.has(id)).length,
+        jewels: savedJewels(entry, puzzlesBy(u.username, puzzles, users).length),
+      };
+    })
+    .sort((a, b) => b.solved - a.solved || b.jewels - a.jewels);
 }

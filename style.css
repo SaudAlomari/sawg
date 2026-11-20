@@ -135,3 +135,17 @@ section.card + section.card { margin-top: 16px; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; font-weight: 700; }
 #whoami::before { content: '👤 '; }
+
+.hints { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.hints .hint { margin: 0; }
+.hint-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.hint-row input { flex: 1; }
+.hint-row select { width: auto; }
+.board { list-style: none; padding: 0; margin: 0; }
+.board li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; margin: 8px 0; }
+.board .rank { min-width: 2em; text-align: center; font-weight: 800; }
+.board .who { flex: 1; font-weight: 700; }
+.board .stats { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.board li.me { border-color: var(--accent); }
+.tabs .badge { margin-inline-start: 4px; }
+.brand { font-size: 1.15rem; }
