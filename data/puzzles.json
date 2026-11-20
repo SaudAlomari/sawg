@@ -63,11 +63,21 @@
     "answerHashes": [
       "b733ef358f1dc9ea35d74a1f3d603a85b9e70e447d92bfb9c7c7832ac1573cdd"
     ],
-    "hint": "اسم مركب",
     "image": "images/p-mwpg9p1o.jpg",
     "answerImage": "images/p-mwpg9p1o-answer.jpg",
     "author": "نعمه",
     "by": "nwafy",
-    "addedAt": "2026-11-20"
+    "addedAt": "2026-11-20",
+    "hints": [
+      {
+        "text": "اسم مركب",
+        "size": "small"
+      },
+      {
+        "text": "يطير",
+        "size": "big"
+      }
+    ],
+    "editedAt": "2026-11-20"
   }
 ]
