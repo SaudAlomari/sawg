@@ -1,16 +1,16 @@
 [
   {
     "id": "p-capital",
-    "question": "What is the capital of Saudi Arabia?",
+    "question": "ما هي عاصمة المملكة العربية السعودية؟",
     "type": "choice",
     "options": [
-      "Jeddah",
-      "Riyadh",
-      "Dammam",
-      "Mecca"
+      "جدة",
+      "الرياض",
+      "الدمام",
+      "مكة المكرمة"
     ],
     "answerHashes": [
-      "18e2105c64f46cb11babc158c5ea7bc620677cc73b6c3ed85a5343d8b1e0890c"
+      "9fc951ede9dc9efa1a3f9f1924f3a23be83395ae3361f3fb02a41d0c0990b40b"
     ],
     "hint": "",
     "image": null,
@@ -19,27 +19,29 @@
   },
   {
     "id": "p-keyboard",
-    "question": "I have keys but open no locks. I have space but no room. You can enter, but you cannot go outside. What am I?",
+    "question": "لغز: لي مفاتيح لكني لا أفتح أي قفل، وفيّ مسافة لكن ليس فيّ غرفة. من أنا؟",
     "type": "text",
     "options": [],
     "answerHashes": [
-      "74c66c77f593cf737b284e2fbfe3f5256868eb7caf6a09ef96991b7a7ef33d87",
-      "9a21c9a016def992f9d09ae765c142e0a06c067dd0599b5c4482c747b5adfbbd"
+      "d8d8cccfff591d11b0b803880ebe9377d89c6771c3e73353d7a2bab514702264",
+      "ec4d31e16a7b41c46e3d78661427c5751bbb87a5b620b13bb515321d8c7a740b",
+      "0bafbde6ab8d18d75bd1839519dd9d26c17a4ee80bf8d5b1c8047d03be39c40c",
+      "60b08ff30e346448781cfb4403642735a09267dbd96534e8bc2040a2de1fa5ce"
     ],
-    "hint": "You might be touching one right now.",
+    "hint": "ربما تلمسه الآن!",
     "image": null,
     "author": "SAWG",
     "addedAt": "2026-11-20"
   },
   {
     "id": "p-sequence",
-    "question": "What comes next? 2, 4, 8, 16, ...",
+    "question": "ما الرقم التالي؟ ٢، ٤، ٨، ١٦، ...",
     "type": "text",
     "options": [],
     "answerHashes": [
       "ddb704aafa7fbb95d476393fdbeb202ad6ea820f88f547c0785d5fc1a9519553"
     ],
-    "hint": "Each number doubles.",
+    "hint": "كل رقم ضعف الرقم الذي قبله.",
     "image": null,
     "author": "SAWG",
     "addedAt": "2026-11-20"

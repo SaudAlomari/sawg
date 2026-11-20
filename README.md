@@ -5,6 +5,8 @@ A family & friends trivia and puzzle game that runs entirely on GitHub, with no 
 - **The site** is plain HTML/JS hosted on **GitHub Pages**.
 - **Data** is stored as JSON files in this repo: `data/users.json` and `data/puzzles.json`. Puzzle pictures go in `images/`.
 - **Players** sign up with a username and password, without needing a GitHub account.
+- **Language:** the player site is in Arabic (right-to-left). The admin tools are in English.
+- **Answers** are forgiving: case, extra spaces, Arabic diacritics, أ/إ/آ vs ا, ة vs ه, ى vs ي and Arabic vs Western digits don't matter.
 
 ## How it works
 
