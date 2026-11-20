@@ -9,7 +9,7 @@ A family & friends trivia and puzzle game that runs entirely on GitHub, with no 
 ## How it works
 
 1. **Sign up.** A player picks a username and password. The site gives them a **sign-up code** (the password is scrambled inside it), which they send to the admin, for example on WhatsApp.
-2. **Activate.** The admin opens **Admin** (link at the bottom of the site), pastes the code and taps **Activate**. The user is saved into `data/users.json`. About a minute later they can sign in.
+2. **Activate.** The admin signs in, opens the **Admin** tab, pastes the code and taps **Activate**. The user is saved into `data/users.json`. About a minute later they can sign in.
 3. **Play.** Puzzles are shown one at a time, page by page. Wrong answers can be retried, and players can use a hint if the puzzle has one, or skip.
 4. **Submit a puzzle.** Players fill in the puzzle form and get a **puzzle code** to send to the admin, with a picture if there is one. The admin pastes the code in Admin, attaches the picture and taps **Approve**. It's saved into `data/puzzles.json`.
 
@@ -19,8 +19,7 @@ The admin can also deactivate or delete users and delete puzzles from the Admin 
 
 1. **Make the repo public:** Settings → General → scroll to *Danger Zone* → *Change visibility* → *Public*. Free GitHub Pages needs a public repo.
 2. **Turn on GitHub Pages:** Settings → Pages → Source: *Deploy from a branch* → Branch: `main`, folder `/ (root)` → Save. After a minute or two the site is live at **https://saudalomari.github.io/sawg/**.
-3. **Create your admin key:** open the site → *Admin* at the bottom, and follow the steps shown there. They walk you through creating a GitHub fine-grained token with access to only the `sawg` repo and *Contents: Read and write*. The key is saved only on that phone.
-4. **Make your own player account:** on the site, tap *Sign up*, copy your code, and paste it in Admin.
+3. **Sign up first.** The very first person to sign up becomes the **admin** and is activated straight away. The sign-up form also asks for a GitHub key once and shows how to make one: a fine-grained token with access to only the `sawg` repo and *Contents: Read and write*. The key is saved only on that device. If you sign in as admin on another device, the Admin tab asks for the key again.
 
 ## Limits to know about (fine for family & friends)
 
@@ -37,7 +36,7 @@ These could be improved later with a small backend, for example a leaderboard, p
 
 ```
 index.html, app.js     the player site
-admin.html, admin.js   the admin page
+admin.js               the admin tools (Admin tab)
 common.js              shared helpers (repo name is set here)
 style.css              styles
 data/users.json        activated players
