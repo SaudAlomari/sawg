@@ -27,5 +27,20 @@
     "answerImage": "images/p-mwpdpl6p-answer.jpg",
     "author": "سعود٢",
     "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-mwpevcfx",
+    "question": "ماهو الشي الذي له اسنان ولا يعض؟",
+    "type": "text",
+    "options": [],
+    "answerHashes": [
+      "afab0b16c84acfcf05b4a35b80312471b653dcfb88475f3f5eef2108f32c1352",
+      "5c109b8844475e09ec57fdba3bcf456a8784c093e8b7254c16d5d745791b3f40"
+    ],
+    "hint": "",
+    "image": null,
+    "answerImage": null,
+    "author": "نعمه",
+    "addedAt": "2026-11-20"
   }
 ]
