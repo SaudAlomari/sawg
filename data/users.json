@@ -7,5 +7,13 @@
     "status": "active",
     "admin": true,
     "joinedAt": "2026-11-20"
+  },
+  {
+    "username": "saud2",
+    "displayName": "سعود٢",
+    "salt": "5337d817d825727b54f4923fdaf65a21",
+    "hash": "c982a6e7a0b79d222483ff52ba4ceb87867b50320ee0127493d609dcf25487ff",
+    "status": "active",
+    "joinedAt": "2026-11-20"
   }
 ]
