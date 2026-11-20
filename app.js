@@ -7,6 +7,7 @@ let users = [];
 let puzzles = [];
 let me = null;
 let settings = {};
+let saves = {}; // usersSavedData.json: progress and profile names
 
 function mount(id) {
   app.replaceChildren(document.getElementById(id).content.cloneNode(true));
@@ -30,12 +31,14 @@ function loadProgress() {
   return { solved: [], skipped: [], hinted: [] };
 }
 
-// Jewels: +2 for each solved puzzle, −5 for each hint opened.
+// Jewels: +2 for each solved puzzle, −5 for each hint opened,
+// +1 for each of your puzzles that is in the game.
 const JEWELS_PER_SOLVE = 2;
 const HINT_COST = 5;
 const MAX_ALTS = 5; // alternative answers on top of the main one
 function jewels(progress) {
-  return progress.solved.length * JEWELS_PER_SOLVE - progress.hinted.length * HINT_COST;
+  return progress.solved.length * JEWELS_PER_SOLVE - progress.hinted.length * HINT_COST
+    + puzzlesBy(me.username, puzzles, users).length * PUZZLE_GIFT;
 }
 function saveLocal(p) {
   try { localStorage.setItem(progressKey(), JSON.stringify(p)); } catch {}
@@ -61,7 +64,7 @@ async function uploadProgress(p) {
     pending = null;
     try {
       await updateSaves(cfg, (all) => {
-        all[next.username] = { ...next.progress, updatedAt: new Date().toISOString() };
+        all[next.username] = { ...all[next.username], ...next.progress, updatedAt: new Date().toISOString() };
       }, `Progress: ${next.username}`);
       setSaveNote('ok');
     } catch {
@@ -78,6 +81,8 @@ async function syncDown() {
   if (!cfg || !me) return;
   try {
     const { data } = await readSaves(cfg);
+    saves = data;
+    me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
     if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [] });
     else {
@@ -103,7 +108,7 @@ function remember(username) {
 
 // ---------- routing ----------
 
-const views = { play, submit, admin: () => adminView(app) };
+const views = { play, submit, profile, admin: () => adminView(app) };
 
 function route() {
   const nav = document.getElementById('nav');
@@ -272,7 +277,7 @@ function play() {
   }
 
   $('#p-count').textContent = `اللغز ${doneCount + 1} من ${puzzles.length}`;
-  $('#p-author').textContent = 'من: ' + p.author;
+  $('#p-author').textContent = 'من: ' + puzzleAuthor(p, users, saves);
   $('#p-question').textContent = p.question;
   if (p.image) {
     $('#p-image').src = p.image;
@@ -388,7 +393,17 @@ function submit() {
     input.focus();
   };
 
-  form.onsubmit = (e) => {
+  for (const [input, preview] of [[form.qImage, '#s-q-preview'], [form.aImage, '#s-a-preview']]) {
+    input.onchange = () => {
+      const f = input.files[0];
+      const img = app.querySelector(preview);
+      img.hidden = !f;
+      if (f) img.src = URL.createObjectURL(f);
+    };
+  }
+  const submitBtn = form.querySelector('[type=submit]');
+
+  form.onsubmit = async (e) => {
     e.preventDefault();
     showMsg(err);
     const type = form.type.value;
@@ -403,25 +418,114 @@ function submit() {
       if (options.length < 2) return showMsg(err, 'الاختيار من متعدد يحتاج خيارين على الأقل.');
       if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
     }
+    const qFile = form.qImage.files[0];
+    const aFile = form.aImage.files[0];
+    let images = null;
+    if (qFile || aFile) {
+      const cfg = savesConfig(settings);
+      if (!cfg) return showMsg(err, 'رفع الصور غير متاح بعد. اطلب من المشرف تفعيل الحفظ، أو أرسل اللغز بدون صور.');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ جارٍ رفع الصور…';
+      try {
+        const pid = Date.now().toString(36) + randomHex(3);
+        images = {};
+        for (const [key, file, label] of [['q', qFile, 'صورة السؤال'], ['a', aFile, 'صورة الإجابة']]) {
+          if (!file) continue;
+          const pic = await shrinkPicture(file).catch(() => null);
+          if (!pic) throw new Error(`${label} ليست صورة صالحة.`);
+          if (pic.bytes.length > 2 * 1024 * 1024) throw new Error(`${label} كبيرة جدًا. اختر صورة أصغر.`);
+          const path = `pending/${pid}-${key}.${pic.ext}`;
+          await savesPutFile(cfg, path, pic.bytes, `Puzzle picture from ${me.username}`);
+          images[key] = path;
+        }
+      } catch (e2) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'احصل على رمز اللغز';
+        return showMsg(err, e2.message.startsWith('upload') ? 'تعذّر رفع الصورة. تحقق من الإنترنت وحاول مرة أخرى.' : e2.message);
+      }
+    }
     const code = makeCode('PUZZLE', {
       question: form.question.value.trim().slice(0, 1000),
       type,
       options,
       answers,
       hint: form.hint.value.trim().slice(0, 300),
-      hasImage: form.hasImage.checked,
-      hasAnswerImage: form.hasAnswerImage.checked,
+      images,
       author: me.displayName,
       by: me.username,
     });
     codeView({
       title: 'رمز لغزك',
-      text: 'أرسل هذا الرمز إلى المشرف' + (form.hasImage.checked || form.hasAnswerImage.checked ? ' مع الصور.' : '.') + ' سيظهر لغزك في اللعبة بعد الموافقة عليه.',
+      text: 'أرسل هذا الرمز إلى المشرف' + (images ? '، وصورك وصلت إليه مع الرمز.' : '.') + ' سيظهر لغزك في اللعبة بعد الموافقة عليه.',
       code,
       after: 'لا تشاركه مع اللاعبين الآخرين، ففيه الإجابة!',
       back: 'أضف لغزًا آخر',
       onBack: submit,
     });
+  };
+}
+
+// Phone photos are often huge: shrink big pictures to at most 1600px.
+async function shrinkPicture(file) {
+  const exts = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+  const small = file.size <= 1024 * 1024 && exts[file.type];
+  if (small || file.type === 'image/gif') return { bytes: new Uint8Array(await file.arrayBuffer()), ext: exts[file.type] || 'gif' };
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
+  return { bytes: new Uint8Array(await blob.arrayBuffer()), ext: 'jpg' };
+}
+
+function profile() {
+  mount('t-profile');
+  const $ = (s) => app.querySelector(s);
+  const progress = loadProgress();
+  const mine = puzzlesBy(me.username, puzzles, users);
+  $('#pr-name').textContent = me.displayName;
+  $('#pr-username').textContent = '@' + me.username;
+  $('#pr-joined').textContent = me.joinedAt || '—';
+  $('#pr-jewels').textContent = `💎 ${jewels(progress)}`;
+  $('#pr-solved').textContent = puzzles.filter((p) => progress.solved.includes(p.id)).length;
+  $('#pr-live').textContent = mine.length;
+  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح يكلّف ٥ جواهر.';
+
+  const list = $('#pr-puzzles');
+  if (!mine.length) list.append(el('li', { className: 'empty muted', textContent: 'لم يُقبل لك لغز بعد. أضف لغزًا من صفحة "أضف لغزًا".' }));
+  mine.forEach((p) => list.append(el('li', {},
+    el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
+    el('div', { className: 'meta', textContent: `🎁 +${PUZZLE_GIFT} 💎 · ${p.addedAt || ''}` }))));
+
+  const form = $('#name-form');
+  const err = form.querySelector('.error');
+  const ok = form.querySelector('.success');
+  form.displayName.value = me.displayName;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    showMsg(err);
+    showMsg(ok);
+    const name = form.displayName.value.trim().slice(0, 40);
+    if (!name) return showMsg(err, 'اكتب اسمًا.');
+    const cfg = savesConfig(settings);
+    if (!cfg) return showMsg(err, 'تغيير الاسم غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
+    const btn = form.querySelector('[type=submit]');
+    btn.disabled = true;
+    try {
+      saves = await updateSaves(cfg, (all) => {
+        all[me.username] = { ...all[me.username], displayName: name };
+      }, `Name: ${me.username}`);
+      me = { ...me, displayName: name };
+      document.getElementById('whoami').textContent = name;
+      $('#pr-name').textContent = name;
+      showMsg(ok, 'تم حفظ اسمك ✓');
+    } catch {
+      showMsg(err, 'تعذّر حفظ الاسم. تحقق من الإنترنت وحاول مرة أخرى.');
+    } finally {
+      btn.disabled = false;
+    }
   };
 }
 

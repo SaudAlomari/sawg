@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <header class="top">
@@ -16,7 +16,7 @@
       <a href="#play">العب</a>
       <a href="#submit">أضف لغزًا</a>
       <a href="#admin" id="nav-admin" lang="en" hidden>Admin</a>
-      <span class="muted small" id="whoami"></span>
+      <a href="#profile" id="whoami" title="ملفي"></a>
       <button id="signout" class="link">تسجيل الخروج</button>
     </nav>
   </header>
@@ -112,11 +112,42 @@
         <button type="button" id="s-add-alt">➕ أضف إجابة بديلة</button>
         <p class="muted small">الإجابات البديلة تُقبل أيضًا (حتى ٥)، مثال: <b>كيبورد</b> و<b>لوحة المفاتيح</b>.<br>لا يهم الفرق بين (أ) و(ا)، ولا بين (ة) و(ه).</p>
         <label>تلميح (اختياري) <input name="hint" maxlength="300"></label>
-        <label class="inline"><input type="checkbox" name="hasImage"> لغزي فيه صورة سؤال (أرسلها إلى المشرف مع الرمز)</label>
-        <label class="inline"><input type="checkbox" name="hasAnswerImage"> لغزي فيه صورة إجابة تظهر بعد الحل الصحيح (أرسلها أيضًا)</label>
+        <label>صورة السؤال (اختياري) <input type="file" name="qImage" accept="image/*"></label>
+        <img class="preview" id="s-q-preview" alt="" hidden>
+        <label>صورة الإجابة، تظهر بعد الحل الصحيح (اختياري) <input type="file" name="aImage" accept="image/*"></label>
+        <img class="preview" id="s-a-preview" alt="" hidden>
         <p class="error" hidden></p>
         <button type="submit" class="primary">احصل على رمز اللغز</button>
       </form>
+    </section>
+  </template>
+
+  <template id="t-profile">
+    <section class="card narrow">
+      <h2>ملفي</h2>
+      <dl class="facts">
+        <dt>الاسم الظاهر</dt><dd id="pr-name"></dd>
+        <dt>اسم المستخدم</dt><dd id="pr-username" dir="ltr"></dd>
+        <dt>تاريخ الانضمام</dt><dd id="pr-joined"></dd>
+        <dt>الجواهر</dt><dd id="pr-jewels"></dd>
+        <dt>ألغاز حللتها</dt><dd id="pr-solved"></dd>
+        <dt>ألغازي المقبولة في اللعبة</dt><dd id="pr-live"></dd>
+      </dl>
+      <p class="muted small" id="pr-jewels-why"></p>
+    </section>
+    <section class="card narrow">
+      <h2>غيّر اسمك الظاهر</h2>
+      <form id="name-form">
+        <label>الاسم الظاهر <input name="displayName" maxlength="40" required></label>
+        <p class="muted small">يتغيّر اسمك على كل ألغازك أيضًا.</p>
+        <p class="error" hidden></p>
+        <p class="success" hidden></p>
+        <button type="submit" class="primary">احفظ الاسم</button>
+      </form>
+    </section>
+    <section class="card narrow">
+      <h2>ألغازي</h2>
+      <ul class="list" id="pr-puzzles"></ul>
     </section>
   </template>
 
@@ -159,13 +190,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 9</p>
+      <p class="muted small">Site version 10</p>
     </section>
   </template>
 
-  <script src="common.js?v=9"></script>
-  <script src="saves.js?v=9"></script>
-  <script src="admin.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="common.js?v=10"></script>
+  <script src="saves.js?v=10"></script>
+  <script src="admin.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

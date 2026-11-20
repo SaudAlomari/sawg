@@ -130,3 +130,8 @@ ol.small li { margin: 4px 0; }
 section.card + section.card { margin-top: 16px; }
 .jewels { font-weight: 700; color: var(--accent); white-space: nowrap; }
 .jewels.big { font-size: 1.4rem; }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; font-weight: 700; }
+#whoami::before { content: '👤 '; }

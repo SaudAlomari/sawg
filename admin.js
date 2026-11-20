@@ -140,22 +140,25 @@ function adminView(app) {
     }
   };
 
+  let lastCfg = null;
+
   async function refresh() {
     try {
       const [{ data: users }, { data: puzzles }, { data: settings }] = await Promise.all([
         readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings'),
       ]);
       const cfg = savesConfig(settings);
+      lastCfg = cfg;
       const saves = cfg ? await readSaves(cfg).then((r) => r.data).catch(() => null) : null;
-      renderUsers(users, saves);
-      renderPuzzles(puzzles);
+      renderUsers(users, saves, puzzles);
+      renderPuzzles(puzzles, users, saves);
       renderSaves(settings, cfg, saves);
     } catch (e) {
       $('#a-users').replaceChildren(el('li', { className: 'error', textContent: e.message }));
     }
   }
 
-  function renderUsers(users, saves) {
+  function renderUsers(users, saves, puzzles) {
     const list = $('#a-users');
     list.replaceChildren();
     [...users].reverse().forEach((u) => {
@@ -186,14 +189,14 @@ function adminView(app) {
         row.append(toggle, del);
       }
       list.append(el('li', {},
-        el('strong', { textContent: u.displayName }), ' ',
+        el('strong', { textContent: displayNameOf(u.username, users, saves) }), ' ',
         el('span', { className: 'status ' + (active ? 'approved' : 'rejected'), textContent: u.admin ? 'admin' : u.status }),
-        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''}` + (saves && saves[u.username] ? ` · ${saves[u.username].solved.length} solved · 💎 ${savedJewels(saves[u.username])}` : '') }),
+        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''} · ${puzzlesBy(u.username, puzzles, users).length} puzzles` + (saves ? ` · ${((saves[u.username] || {}).solved || []).length} solved · 💎 ${savedJewels(saves[u.username], puzzlesBy(u.username, puzzles, users).length)}` : '') }),
         row));
     });
   }
 
-  function renderPuzzles(puzzles) {
+  function renderPuzzles(puzzles, users, saves) {
     const list = $('#a-puzzles');
     list.replaceChildren();
     if (!puzzles.length) list.append(el('li', { className: 'empty', textContent: 'No puzzles yet.' }));
@@ -216,7 +219,7 @@ function adminView(app) {
         p.answerImage ? el('div', { className: 'meta', textContent: 'Answer picture:' }) : null,
         p.answerImage ? el('img', { src: p.answerImage, alt: '' }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
-        el('div', { className: 'meta', textContent: `By ${p.author} · ${p.addedAt || ''}` }),
+        el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
         el('div', { className: 'row' }, del)));
     });
   }
@@ -337,12 +340,13 @@ function adminView(app) {
   function pictureInput() {
     const input = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
     const img = el('img', { hidden: true, className: 'preview', alt: '' });
+    const pic = { input, img, note: el('div', { className: 'meta' }), pending: null, pendingPath: null };
     input.onchange = () => {
-      const f = input.files[0];
+      const f = input.files[0] || pic.pending;
       img.hidden = !f;
       if (f) img.src = URL.createObjectURL(f);
     };
-    return { input, img };
+    return pic;
   }
 
   function checkPicture(f, what) {
@@ -353,25 +357,56 @@ function adminView(app) {
     return ext;
   }
 
-  async function uploadPicture(f, path, what, id) {
-    const res = await putFile(path, new Uint8Array(await f.arrayBuffer()), `Add ${what} for ${id}`);
+  async function uploadPicture(buf, path, what, id) {
+    const res = await putFile(path, new Uint8Array(buf), `Add ${what} for ${id}`);
     if (!res.ok) throw new Error(`Could not upload the ${what} (${res.status}).`);
     return path;
   }
 
   function previewPuzzle(p) {
+    const cfg = lastCfg || savesConfig(settings);
+    const pending = p.images && typeof p.images === 'object' ? p.images : {};
+    const pendingPaths = Object.values(pending).filter((x) => typeof x === 'string' && /^pending\/[\w.-]+$/.test(x));
     const q = pictureInput();
     const a = pictureInput();
+
+    // Pictures the player uploaded: show them, and use them unless replaced.
+    for (const [key, pic] of [['q', q], ['a', a]]) {
+      const path = pending[key];
+      if (!pendingPaths.includes(path)) continue;
+      pic.pendingPath = path;
+      pic.note.textContent = '⏳ Loading their picture…';
+      if (!cfg) {
+        pic.note.textContent = '⚠️ Saving progress is not set up, so their picture can\'t be loaded.';
+        continue;
+      }
+      savesGetBlob(cfg, path).then((blob) => {
+        pic.pending = blob;
+        pic.note.textContent = 'Their picture (choose a file to replace it):';
+        if (!pic.input.files[0]) {
+          pic.img.src = URL.createObjectURL(blob);
+          pic.img.hidden = false;
+        }
+      }).catch(() => (pic.note.textContent = '⚠️ Their picture could not be loaded. You can attach one instead.'));
+    }
+
+    const removePending = () => cfg && Promise.all(pendingPaths.map((x) => savesDeleteFile(cfg, x, 'Remove puzzle picture').catch(() => {})));
+
     const btn = el('button', { className: 'primary', textContent: 'Approve and add to the game' });
     btn.onclick = () => doSave(btn, async () => {
       const id = 'p-' + Date.now().toString(36);
-      const qf = q.input.files[0];
-      const af = a.input.files[0];
-      const qExt = checkPicture(qf, 'question picture');
-      const aExt = checkPicture(af, 'answer picture');
-      const image = qf ? await uploadPicture(qf, `images/${id}.${qExt}`, 'question picture', id) : null;
-      const answerImage = af ? await uploadPicture(af, `images/${id}-answer.${aExt}`, 'answer picture', id) : null;
-      const answerHashes = await Promise.all(p.answers.map((a) => hashAnswer(id, a)));
+      const pick = (pic, what) => {
+        const f = pic.input.files[0];
+        if (f) return { bytes: f.arrayBuffer(), ext: checkPicture(f, what) };
+        if (pic.pending) return { bytes: pic.pending.arrayBuffer(), ext: pic.pendingPath.split('.').pop() };
+        if (pic.pendingPath) throw new Error(`Their ${what} hasn't loaded yet. Wait a moment, or attach one yourself.`);
+        return null;
+      };
+      const qp = pick(q, 'question picture');
+      const ap = pick(a, 'answer picture');
+      const image = qp ? await uploadPicture(await qp.bytes, `images/${id}.${qp.ext}`, 'question picture', id) : null;
+      const answerImage = ap ? await uploadPicture(await ap.bytes, `images/${id}-answer.${ap.ext}`, 'answer picture', id) : null;
+      const answerHashes = await Promise.all(p.answers.map((x) => hashAnswer(id, x)));
       await updateRepoJson('puzzles', (all) => {
         all.push({
           id,
@@ -383,25 +418,39 @@ function adminView(app) {
           image,
           answerImage,
           author: String(p.author || 'Someone').slice(0, 40),
+          ...(p.by ? { by: String(p.by).slice(0, 20) } : {}),
           addedAt: new Date().toISOString().slice(0, 10),
         });
       }, `Add puzzle ${id} by ${p.by || p.author}`);
+      await removePending();
       clearCode();
-      saved('Puzzle added! It shows in the game in about a minute.');
+      saved(`Puzzle added! It shows in the game in about a minute.${p.by ? ` ${p.author} gets 💎 ${PUZZLE_GIFT}.` : ''}`);
       refresh();
     });
 
+    const reject = el('button', { className: 'bad', textContent: 'Reject' });
+    reject.onclick = () => {
+      if (!confirm('Reject this puzzle? Their pictures will be deleted.')) return;
+      doSave(reject, async () => {
+        await removePending();
+        clearCode();
+        saved('Puzzle rejected.');
+      });
+    };
+
     $('#preview').append(el('div', { className: 'list' }, el('li', {},
-      el('div', { className: 'meta', textContent: `Puzzle from ${p.author}` }),
+      el('div', { className: 'meta', textContent: `Puzzle from ${p.author}${p.by ? ' (@' + p.by + ')' : ''}` }),
       el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
       el('div', { className: 'meta', textContent: (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
       p.hint ? el('div', { className: 'meta', textContent: 'Hint: ' + p.hint }) : null,
-      el('label', {}, p.hasImage ? 'Question picture (they said there is one, attach it here)' : 'Question picture (optional)', q.input),
+      el('h3', { textContent: 'Question picture' }), q.note,
+      el('label', {}, q.pendingPath ? '' : (p.hasImage ? 'They said there is one, attach it here:' : 'Optional:'), q.input),
       q.img,
-      el('label', {}, p.hasAnswerImage ? 'Answer picture, shown after a correct answer (they said there is one)' : 'Answer picture, shown after a correct answer (optional)', a.input),
+      el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note,
+      el('label', {}, a.pendingPath ? '' : (p.hasAnswerImage ? 'They said there is one, attach it here:' : 'Optional:'), a.input),
       a.img,
-      el('div', { className: 'row' }, btn))));
+      el('div', { className: 'row' }, btn, reject))));
   }
 
   refresh();
