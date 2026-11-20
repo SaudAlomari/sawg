@@ -24,12 +24,22 @@ The admin can also deactivate or delete users and delete puzzles from the Admin 
 2. **Turn on GitHub Pages:** Settings → Pages → Source: *Deploy from a branch* → Branch: `main`, folder `/ (root)` → Save. After a minute or two the site is live at **https://saudalomari.github.io/sawg/**.
 3. **Sign up first.** The very first person to sign up becomes the **admin** and is activated straight away. The sign-up form also asks for a GitHub key once and shows how to make one: a fine-grained token with access to only the `sawg` repo and *Contents: Read and write*. The key is saved only on that device. If you sign in as admin on another device, the Admin tab asks for the key again.
 
+## Saving progress and jewels (about 5 minutes, phone OK)
+
+Players' progress and jewels are saved in **`usersSavedData.json`** in a **separate repo**, `sawg-saves`. The site writes to it with a GitHub key that can **only** change that repo. The key is stored scrambled in `data/settings.json`. Someone determined could still dig it out, but at worst they could only mess with saved progress, never the game, the puzzles or `users.json`. Until this is set up, progress is kept on each player's device.
+
+1. **Create the saves repo:** on GitHub tap **+** → *New repository*. Name it `sawg-saves`, choose **Private**, tick *Add a README file*, and tap *Create repository*.
+2. **Make the saves key:** open [New fine-grained token](https://github.com/settings/personal-access-tokens/new). Name it `sawg saves` and pick the longest expiration. Under *Repository access* choose **Only select repositories** → **sawg-saves** (only that one!). Under *Permissions* set **Contents → Read and write**. Generate it and copy it.
+3. **Connect it:** on the site, open **Admin** → *Saving progress*, paste the key and tap **Save**. It should say "✅ Saving to SaudAlomari/sawg-saves". If the key can also change the `sawg` repo, the admin page refuses it.
+
+Players' progress then follows them to any device, and Admin → Users shows each player's solved count and jewels. If the key expires, make a new one and paste it again.
+
 ## Limits to know about (fine for family & friends)
 
 - **Data is public.** Because the repo is public, anyone can read `users.json`. It holds usernames, display names and *scrambled* passwords (salted PBKDF2), never the real passwords. A very simple password could still be guessed by someone determined, so ask players not to reuse an important password.
 - **Answers are scrambled** in `puzzles.json` (SHA-256), so they can't simply be read. Very short answers, like a number, could still be guessed by someone determined.
 - **Sign-in happens in the browser.** It's a light lock, not real security.
-- **Progress is saved on each player's device**, so it doesn't follow them to another phone. For the same reason there's no leaderboard yet.
+- **Progress** is saved on each device until saving is set up. After that it's saved in `usersSavedData.json` in the `sawg-saves` repo and follows players to any device.
 - **Changes take about a minute** to show on the site, while GitHub Pages updates.
 - **Size:** pictures are capped at 2 MB. GitHub allows 100 MB per file and recommends staying under about 1 GB for the whole repo, which leaves room for hundreds of puzzles.
 

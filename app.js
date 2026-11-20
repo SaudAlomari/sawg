@@ -6,12 +6,15 @@ const app = document.getElementById('app');
 let users = [];
 let puzzles = [];
 let me = null;
+let settings = {};
 
 function mount(id) {
   app.replaceChildren(document.getElementById(id).content.cloneNode(true));
 }
 
-// ---------- progress (kept on this device) ----------
+// ---------- progress ----------
+// Kept on this device, and also saved in usersSavedData.json (see saves.js)
+// once the admin has set up saving.
 
 function progressKey() {
   return 'sawg-progress-' + me.username;
@@ -33,8 +36,62 @@ const HINT_COST = 5;
 function jewels(progress) {
   return progress.solved.length * JEWELS_PER_SOLVE - progress.hinted.length * HINT_COST;
 }
-function saveProgress(p) {
+function saveLocal(p) {
   try { localStorage.setItem(progressKey(), JSON.stringify(p)); } catch {}
+}
+function saveProgress(p) {
+  saveLocal(p);
+  uploadProgress(p);
+}
+
+// ---------- saving to the account ----------
+
+// Saves run one at a time; if more come in meanwhile, only the newest is sent.
+let uploading = false;
+let pending = null;
+async function uploadProgress(p) {
+  const cfg = savesConfig(settings);
+  if (!cfg || !me) return;
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted } };
+  if (uploading) return;
+  uploading = true;
+  while (pending) {
+    const next = pending;
+    pending = null;
+    try {
+      await updateSaves(cfg, (all) => {
+        all[next.username] = { ...next.progress, updatedAt: new Date().toISOString() };
+      }, `Progress: ${next.username}`);
+      setSaveNote('ok');
+    } catch {
+      setSaveNote('fail');
+    }
+  }
+  uploading = false;
+}
+
+// After signing in: the account's saved progress wins. If the account has
+// none yet, this device's progress is uploaded.
+async function syncDown() {
+  const cfg = savesConfig(settings);
+  if (!cfg || !me) return;
+  try {
+    const { data } = await readSaves(cfg);
+    const saved = data[me.username];
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [] });
+    else {
+      const local = loadProgress();
+      if (local.solved.length || local.skipped.length) await uploadProgress(local);
+    }
+  } catch {}
+}
+
+function setSaveNote(state) {
+  const note = document.getElementById('save-note');
+  if (!note) return;
+  if (!savesConfig(settings)) note.textContent = 'يُحفظ تقدمك على هذا الجهاز.';
+  else if (state === 'fail') note.textContent = '⚠️ تعذّر حفظ تقدمك في حسابك الآن. سنحاول مع إجابتك التالية.';
+  else note.textContent = 'يُحفظ تقدمك وجواهرك في حسابك ✓';
 }
 function remember(username) {
   try {
@@ -112,6 +169,7 @@ function authView() {
         if (user.status !== 'active') return showMsg(err, 'حسابك غير مفعّل. تواصل مع المشرف.');
         me = user;
         remember(user.username);
+        await syncDown();
         route();
       } else {
         if (!/^[a-z0-9_.-]{3,20}$/.test(username)) return showMsg(err, 'اسم المستخدم من ٣ إلى ٢٠ حرفًا إنجليزيًا أو أرقامًا (يُسمح بـ . و - و _).');
@@ -195,6 +253,7 @@ function play() {
   $('#p-bar').style.width = puzzles.length ? (doneCount / puzzles.length) * 100 + '%' : '0';
   const showJewels = () => ($('#p-jewels').textContent = `💎 ${jewels(progress)}`);
   showJewels();
+  setSaveNote('ok');
 
   if (!p) {
     $('#p-count').textContent = `${puzzles.length} من ${puzzles.length}`;
@@ -345,20 +404,26 @@ function submit() {
 async function loadData() {
   if (getKey()) {
     try {
-      const [u, p] = await Promise.all([readRepoJson('users'), readRepoJson('puzzles')]);
-      return [u.data, p.data];
+      const [u, p, s] = await Promise.all([readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings')]);
+      return [u.data, p.data, s.data];
     } catch {}
   }
-  return Promise.all([loadJson('data/users.json'), loadJson('data/puzzles.json')]);
+  return Promise.all([
+    loadJson('data/users.json'),
+    loadJson('data/puzzles.json'),
+    loadJson('data/settings.json').catch(() => ({})),
+  ]);
 }
 
 loadData()
-  .then(([u, p]) => {
+  .then(async ([u, p, s]) => {
     users = u;
     puzzles = p;
+    settings = s || {};
     let saved = null;
     try { saved = localStorage.getItem('sawg-user'); } catch {}
     me = users.find((x) => x.username === saved && x.status === 'active') || null;
+    if (me) await syncDown();
     route();
   })
   .catch((e) => app.replaceChildren(el('p', { className: 'error', textContent: e.message })));
