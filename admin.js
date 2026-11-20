@@ -205,7 +205,7 @@ function adminView(app) {
         });
       };
       list.append(el('li', {},
-        el('div', { textContent: `${n + 1}. ${p.question}`, style: 'white-space:pre-wrap;font-weight:600' }),
+        el('div', { textContent: `${n + 1}. ${p.question}`, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
         p.image ? el('img', { src: p.image, alt: '' }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
         el('div', { className: 'meta', textContent: `By ${p.author} · ${p.addedAt || ''}` }),
@@ -303,7 +303,7 @@ function adminView(app) {
 
     $('#preview').append(el('div', { className: 'list' }, el('li', {},
       el('div', { className: 'meta', textContent: `Puzzle from ${p.author}` }),
-      el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600' }),
+      el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
       el('div', { className: 'meta', textContent: 'Answer: ' + p.answers.join(' | ') }),
       p.hint ? el('div', { className: 'meta', textContent: 'Hint: ' + p.hint }) : null,

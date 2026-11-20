@@ -79,7 +79,7 @@ function authView() {
     app.querySelectorAll('.signup-name').forEach((x) => (x.hidden = m !== 'signup'));
     app.querySelectorAll('.first-only').forEach((x) => (x.hidden = m !== 'signup' || !firstRun));
     form.token.required = m === 'signup' && firstRun;
-    submitBtn.textContent = m === 'signup' ? (firstRun ? 'Create admin account' : 'Sign up') : 'Sign in';
+    submitBtn.textContent = m === 'signup' ? (firstRun ? 'Create admin account' : 'إنشاء الحساب') : 'تسجيل الدخول';
     form.password.autocomplete = m === 'signup' ? 'new-password' : 'current-password';
     showMsg(err);
   };
@@ -97,16 +97,16 @@ function authView() {
         const user = users.find((u) => u.username === username);
         const ok = user && (await hashPassword(password, user.salt)) === user.hash;
         if (!ok) {
-          return showMsg(err, "Wrong username or password. If you just signed up, the admin may not have activated you yet.");
+          return showMsg(err, 'اسم المستخدم أو كلمة المرور غير صحيحة. إذا سجّلت للتو، فربما لم يفعّل المشرف حسابك بعد.');
         }
-        if (user.status !== 'active') return showMsg(err, 'Your account is not active. Please ask the admin.');
+        if (user.status !== 'active') return showMsg(err, 'حسابك غير مفعّل. تواصل مع المشرف.');
         me = user;
         remember(user.username);
         route();
       } else {
-        if (!/^[a-z0-9_.-]{3,20}$/.test(username)) return showMsg(err, 'Username must be 3–20 letters, numbers, dots, dashes or underscores.');
-        if (password.length < 6) return showMsg(err, 'Password must be at least 6 characters.');
-        if (users.some((u) => u.username === username)) return showMsg(err, 'That username is taken.');
+        if (!/^[a-z0-9_.-]{3,20}$/.test(username)) return showMsg(err, 'اسم المستخدم من ٣ إلى ٢٠ حرفًا إنجليزيًا أو أرقامًا (يُسمح بـ . و - و _).');
+        if (password.length < 6) return showMsg(err, 'كلمة المرور يجب أن تكون ٦ أحرف على الأقل.');
+        if (users.some((u) => u.username === username)) return showMsg(err, 'اسم المستخدم هذا مستخدم من قبل.');
         const salt = randomHex(16);
         if (firstRun) return await createAdmin(username, password, salt, err);
         const code = makeCode('USER', {
@@ -117,11 +117,11 @@ function authView() {
           requestedAt: new Date().toISOString(),
         });
         codeView({
-          title: 'Almost there!',
-          text: 'Send this sign-up code to the admin. Once they activate you, come back and sign in with your username and password.',
+          title: 'اقتربت!',
+          text: 'أرسل رمز التسجيل هذا إلى المشرف. بعد أن يفعّل حسابك، ارجع وسجّل الدخول باسم المستخدم وكلمة المرور.',
           code,
-          after: "Your password is scrambled inside the code, so it's safe to send.",
-          back: 'Back to sign in',
+          after: 'كلمة المرور مشفّرة داخل الرمز، لذلك إرساله آمن.',
+          back: 'العودة لتسجيل الدخول',
           onBack: authView,
         });
       }
@@ -185,21 +185,21 @@ function play() {
   $('#p-bar').style.width = puzzles.length ? (doneCount / puzzles.length) * 100 + '%' : '0';
 
   if (!p) {
-    $('#p-count').textContent = `${puzzles.length} of ${puzzles.length}`;
+    $('#p-count').textContent = `${puzzles.length} من ${puzzles.length}`;
     $('#puzzle').hidden = true;
     $('#done').hidden = false;
     const solved = puzzles.filter((x) => progress.solved.includes(x.id)).length;
-    $('#done-score').textContent = `You solved ${solved} of ${puzzles.length}.`;
+    $('#done-score').textContent = `حللت ${solved} من ${puzzles.length}.`;
     $('#restart').onclick = () => {
-      if (!confirm('Start over from puzzle 1? Your progress on this device will be cleared.')) return;
+      if (!confirm('تبدأ من جديد من اللغز الأول؟ سيُمسح تقدمك على هذا الجهاز.')) return;
       saveProgress({ solved: [], skipped: [] });
       play();
     };
     return;
   }
 
-  $('#p-count').textContent = `Puzzle ${doneCount + 1} of ${puzzles.length}`;
-  $('#p-author').textContent = 'By ' + p.author;
+  $('#p-count').textContent = `اللغز ${doneCount + 1} من ${puzzles.length}`;
+  $('#p-author').textContent = 'من: ' + p.author;
   $('#p-question').textContent = p.question;
   if (p.image) {
     $('#p-image').src = p.image;
@@ -248,7 +248,7 @@ function play() {
     const correct = p.answerHashes.includes(await hashAnswer(p.id, answer));
     fb.hidden = false;
     fb.className = 'feedback ' + (correct ? 'ok' : 'bad');
-    fb.textContent = correct ? '✅ Correct!' : '❌ Not quite. Try again!';
+    fb.textContent = correct ? '✅ إجابة صحيحة!' : '❌ ليست صحيحة. حاول مرة أخرى!';
     if (correct) {
       progress.solved.push(p.id);
       saveProgress(progress);
@@ -257,7 +257,7 @@ function play() {
   };
 
   $('#p-skip').onclick = () => {
-    if (!confirm('Skip this puzzle? It will count as not solved.')) return;
+    if (!confirm('تتخطى هذا اللغز؟ سيُحسب غير محلول.')) return;
     progress.skipped.push(p.id);
     saveProgress(progress);
     play();
@@ -280,10 +280,10 @@ function submit() {
     const type = form.type.value;
     const answers = form.answers.value.split('|').map((s) => s.trim()).filter(Boolean);
     const options = type === 'choice' ? form.options.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6) : [];
-    if (!answers.length) return showMsg(err, 'Give the correct answer.');
+    if (!answers.length) return showMsg(err, 'اكتب الإجابة الصحيحة.');
     if (type === 'choice') {
-      if (options.length < 2) return showMsg(err, 'Multiple choice needs at least 2 options.');
-      if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'The correct answer must be one of the options.');
+      if (options.length < 2) return showMsg(err, 'الاختيار من متعدد يحتاج خيارين على الأقل.');
+      if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
     }
     const code = makeCode('PUZZLE', {
       question: form.question.value.trim().slice(0, 1000),
@@ -296,11 +296,11 @@ function submit() {
       by: me.username,
     });
     codeView({
-      title: 'Your puzzle code',
-      text: 'Send this code to the admin' + (form.hasImage.checked ? ', together with your picture.' : '.') + " It'll appear in the game once it's approved.",
+      title: 'رمز لغزك',
+      text: 'أرسل هذا الرمز إلى المشرف' + (form.hasImage.checked ? ' مع الصورة.' : '.') + ' سيظهر لغزك في اللعبة بعد الموافقة عليه.',
       code,
-      after: "Don't share it with other players: it contains the answer!",
-      back: 'Submit another puzzle',
+      after: 'لا تشاركه مع اللاعبين الآخرين، ففيه الإجابة!',
+      back: 'أضف لغزًا آخر',
       onBack: submit,
     });
   };

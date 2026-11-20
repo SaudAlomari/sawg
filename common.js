@@ -20,8 +20,20 @@ function showMsg(p, text) {
   p.hidden = !text;
 }
 
+// Makes answers match even when spelled slightly differently: ignores case,
+// extra spaces, Arabic diacritics and tatweel, treats أ إ آ as ا, ى as ي,
+// ة as ه, and Arabic digits as 0-9.
 function normalize(s) {
-  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return String(s || '')
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0))
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
 }
 
 function toHex(buf) {
@@ -69,24 +81,24 @@ function readCode(text) {
 async function loadJson(path) {
   // The query string skips GitHub Pages' cache so new players show up quickly.
   const res = await fetch(`${path}?t=${Date.now()}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Could not load ' + path);
+  if (!res.ok) throw new Error('تعذّر التحميل. تحقق من الإنترنت وحاول مرة أخرى.');
   return res.json();
 }
 
 // Share text on WhatsApp (or copy it) so the player can send their code.
 function shareButtons(text) {
-  const copy = el('button', { type: 'button', textContent: 'Copy code' });
+  const copy = el('button', { type: 'button', textContent: 'انسخ الرمز' });
   copy.onclick = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      copy.textContent = 'Copied ✓';
+      copy.textContent = 'تم النسخ ✓';
     } catch {
-      copy.textContent = 'Select the code above and copy it';
+      copy.textContent = 'حدد الرمز بالأعلى وانسخه';
     }
   };
   const wa = el('a', {
     className: 'button primary',
-    textContent: 'Send on WhatsApp',
+    textContent: 'أرسل عبر واتساب',
     href: 'https://wa.me/?text=' + encodeURIComponent(text),
     target: '_blank',
     rel: 'noopener',
