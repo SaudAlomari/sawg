@@ -105,5 +105,25 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-mwpjk4vd0a65",
+    "question": "طير زبعر لا يخرى ولا يبعر",
+    "type": "choice",
+    "options": [
+      "دود",
+      "ربية",
+      "قراد",
+      "ثعبان"
+    ],
+    "hints": [],
+    "answerHashes": [
+      "6c0597a3260417461f1525c5908c9c33b3173d3eab9bb26f78f43ce21284cfad"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "ماما صالحة",
+    "by": "saliha",
+    "addedAt": "2026-11-20"
   }
 ]
