@@ -77,6 +77,8 @@ button:disabled { opacity: .5; cursor: default; }
 button.ok { color: var(--ok); }
 button.bad { color: var(--bad); }
 
+.alt-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.alt-row input { flex: 1; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 .between { justify-content: space-between; margin-top: 0; }
 .tabs { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -93,7 +95,7 @@ button.bad { color: var(--bad); }
 .bar div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
 
 #p-question { font-size: 1.4rem; white-space: pre-wrap; }
-#p-image, .preview { max-width: 100%; max-height: 360px; border-radius: 12px; display: block; margin: 12px 0; }
+#p-image, #p-answer-image, .preview { max-width: 100%; max-height: 360px; border-radius: 12px; display: block; margin: 12px 0; }
 .options { display: grid; gap: 8px; }
 .options button { text-align: start; }
 .options button.selected { border-color: var(--accent); outline: 2px solid var(--accent); }

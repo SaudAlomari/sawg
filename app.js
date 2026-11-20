@@ -33,6 +33,7 @@ function loadProgress() {
 // Jewels: +2 for each solved puzzle, −5 for each hint opened.
 const JEWELS_PER_SOLVE = 2;
 const HINT_COST = 5;
+const MAX_ALTS = 5; // alternative answers on top of the main one
 function jewels(progress) {
   return progress.solved.length * JEWELS_PER_SOLVE - progress.hinted.length * HINT_COST;
 }
@@ -343,6 +344,10 @@ function play() {
       saveProgress(progress);
       showJewels();
       fb.textContent = `✅ إجابة صحيحة! +${JEWELS_PER_SOLVE} 💎`;
+      if (p.answerImage) {
+        $('#p-answer-image').src = p.answerImage;
+        $('#p-answer-image').hidden = false;
+      }
       finish();
     }
   };
@@ -365,11 +370,33 @@ function submit() {
     r.onchange = () => (app.querySelector('#s-options').hidden = form.type.value !== 'choice');
   });
 
+  // Up to 5 alternative answers, each in its own box.
+  const alts = app.querySelector('#s-alts');
+  const addAlt = app.querySelector('#s-add-alt');
+  const updateAddAlt = () => (addAlt.hidden = alts.children.length >= MAX_ALTS);
+  addAlt.onclick = () => {
+    const input = el('input', { name: 'alt', placeholder: `إجابة بديلة ${alts.children.length + 1}`, maxLength: 200 });
+    const remove = el('button', { type: 'button', className: 'link', textContent: '✕', title: 'احذف' });
+    const row = el('div', { className: 'alt-row' }, input, remove);
+    remove.onclick = () => {
+      row.remove();
+      alts.querySelectorAll('input').forEach((x, i) => (x.placeholder = `إجابة بديلة ${i + 1}`));
+      updateAddAlt();
+    };
+    alts.append(row);
+    updateAddAlt();
+    input.focus();
+  };
+
   form.onsubmit = (e) => {
     e.preventDefault();
     showMsg(err);
     const type = form.type.value;
-    const answers = form.answers.value.split('|').map((s) => s.trim()).filter(Boolean);
+    const answers = [form.answers.value, ...[...alts.querySelectorAll('input')].map((x) => x.value)]
+      .flatMap((s) => s.split('|'))
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((a, i, all) => all.findIndex((b) => normalize(b) === normalize(a)) === i);
     const options = type === 'choice' ? form.options.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6) : [];
     if (!answers.length) return showMsg(err, 'اكتب الإجابة الصحيحة.');
     if (type === 'choice') {
@@ -383,12 +410,13 @@ function submit() {
       answers,
       hint: form.hint.value.trim().slice(0, 300),
       hasImage: form.hasImage.checked,
+      hasAnswerImage: form.hasAnswerImage.checked,
       author: me.displayName,
       by: me.username,
     });
     codeView({
       title: 'رمز لغزك',
-      text: 'أرسل هذا الرمز إلى المشرف' + (form.hasImage.checked ? ' مع الصورة.' : '.') + ' سيظهر لغزك في اللعبة بعد الموافقة عليه.',
+      text: 'أرسل هذا الرمز إلى المشرف' + (form.hasImage.checked || form.hasAnswerImage.checked ? ' مع الصور.' : '.') + ' سيظهر لغزك في اللعبة بعد الموافقة عليه.',
       code,
       after: 'لا تشاركه مع اللاعبين الآخرين، ففيه الإجابة!',
       back: 'أضف لغزًا آخر',
