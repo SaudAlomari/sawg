@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAWG Trivia</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a href="#play" class="brand">SAWG<span>Trivia</span></a>
+    <nav id="nav" hidden>
+      <a href="#play">Play</a>
+      <a href="#submit">Submit a puzzle</a>
+      <span class="muted small" id="whoami"></span>
+      <button id="signout" class="link">Sign out</button>
+    </nav>
+  </header>
+
+  <main id="app"><p class="center muted">Loading…</p></main>
+
+  <footer class="center small"><a href="admin.html" class="muted">Admin</a></footer>
+
+  <!-- ===== Templates ===== -->
+
+  <template id="t-auth">
+    <section class="card narrow">
+      <div class="tabs">
+        <button data-tab="signin" class="active">Sign in</button>
+        <button data-tab="signup">Sign up</button>
+      </div>
+      <form id="auth-form">
+        <label>Username <input name="username" autocomplete="username" autocapitalize="off" required></label>
+        <label class="signup-only" hidden>Display name <input name="displayName" maxlength="40" placeholder="What others see"></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required minlength="6"></label>
+        <p class="error" hidden></p>
+        <button type="submit" class="primary">Sign in</button>
+      </form>
+      <p class="muted small signup-only" hidden>After signing up you'll get a code to send to the admin. You can play once the admin activates you.</p>
+    </section>
+  </template>
+
+  <template id="t-code">
+    <section class="card narrow">
+      <h2 id="c-title"></h2>
+      <p id="c-text"></p>
+      <textarea id="c-code" rows="5" readonly></textarea>
+      <div id="c-buttons"></div>
+      <p class="muted small" id="c-after"></p>
+      <button class="link" id="c-back"></button>
+    </section>
+  </template>
+
+  <template id="t-play">
+    <section class="card">
+      <div class="progress"><span id="p-count"></span><div class="bar"><div id="p-bar"></div></div></div>
+      <div id="puzzle">
+        <p class="muted small" id="p-author"></p>
+        <h2 id="p-question"></h2>
+        <img id="p-image" alt="Puzzle image" hidden>
+        <form id="answer-form">
+          <div id="p-options" class="options"></div>
+          <input id="p-text" name="answer" placeholder="Your answer" autocomplete="off" hidden>
+          <p id="p-feedback" class="feedback" hidden></p>
+          <div class="row">
+            <button type="submit" class="primary" id="p-submit">Check answer</button>
+            <button type="button" id="p-hint" hidden>Show hint</button>
+            <button type="button" id="p-skip" class="link">Skip</button>
+          </div>
+          <p id="p-hint-text" class="hint" hidden></p>
+        </form>
+        <button class="primary" id="p-next" hidden>Next puzzle →</button>
+      </div>
+      <div id="done" class="center" hidden>
+        <h2>🎉 You've done every puzzle!</h2>
+        <p id="done-score"></p>
+        <p>New puzzles show up here once they're approved. Why not <a href="#submit">submit one</a>?</p>
+        <button class="link" id="restart">Start over from puzzle 1</button>
+      </div>
+    </section>
+    <p class="muted small center">Your progress is saved on this device.</p>
+  </template>
+
+  <template id="t-submit">
+    <section class="card">
+      <h2>Submit a puzzle</h2>
+      <p class="muted small">Fill this in and you'll get a code to send to the admin. Your puzzle appears in the game once it's approved.</p>
+      <form id="submit-form">
+        <label>Question <textarea name="question" rows="3" required maxlength="1000"></textarea></label>
+        <fieldset>
+          <legend>Answer type</legend>
+          <label class="inline"><input type="radio" name="type" value="text" checked> Typed answer</label>
+          <label class="inline"><input type="radio" name="type" value="choice"> Multiple choice</label>
+        </fieldset>
+        <div id="s-options" hidden>
+          <label>Options (one per line, 2–6) <textarea name="options" rows="4" placeholder="Option A&#10;Option B&#10;Option C"></textarea></label>
+        </div>
+        <label>Correct answer <input name="answers" required placeholder="e.g. Riyadh"></label>
+        <p class="muted small">For typed answers you can accept several spellings: separate them with | like <code>colour|color</code>. Capital letters don't matter.</p>
+        <label>Hint (optional) <input name="hint" maxlength="300"></label>
+        <label class="inline"><input type="checkbox" name="hasImage"> My puzzle has a picture (send it to the admin with the code)</label>
+        <p class="error" hidden></p>
+        <button type="submit" class="primary">Get my puzzle code</button>
+      </form>
+    </section>
+  </template>
+
+  <script src="common.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

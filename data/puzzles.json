@@ -1,0 +1,47 @@
+[
+  {
+    "id": "p-capital",
+    "question": "What is the capital of Saudi Arabia?",
+    "type": "choice",
+    "options": [
+      "Jeddah",
+      "Riyadh",
+      "Dammam",
+      "Mecca"
+    ],
+    "answerHashes": [
+      "18e2105c64f46cb11babc158c5ea7bc620677cc73b6c3ed85a5343d8b1e0890c"
+    ],
+    "hint": "",
+    "image": null,
+    "author": "SAWG",
+    "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-keyboard",
+    "question": "I have keys but open no locks. I have space but no room. You can enter, but you cannot go outside. What am I?",
+    "type": "text",
+    "options": [],
+    "answerHashes": [
+      "74c66c77f593cf737b284e2fbfe3f5256868eb7caf6a09ef96991b7a7ef33d87",
+      "9a21c9a016def992f9d09ae765c142e0a06c067dd0599b5c4482c747b5adfbbd"
+    ],
+    "hint": "You might be touching one right now.",
+    "image": null,
+    "author": "SAWG",
+    "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-sequence",
+    "question": "What comes next? 2, 4, 8, 16, ...",
+    "type": "text",
+    "options": [],
+    "answerHashes": [
+      "ddb704aafa7fbb95d476393fdbeb202ad6ea820f88f547c0785d5fc1a9519553"
+    ],
+    "hint": "Each number doubles.",
+    "image": null,
+    "author": "SAWG",
+    "addedAt": "2026-11-20"
+  }
+]
