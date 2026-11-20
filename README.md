@@ -10,15 +10,15 @@ A family & friends trivia and puzzle game that runs entirely on GitHub, with no 
 
 ## How it works
 
-1. **Sign up.** A player picks a username and password. The site gives them a **sign-up code** (the password is scrambled inside it), which they send to the admin, for example on WhatsApp.
-2. **Activate.** The admin signs in, opens the **Admin** tab, pastes the code and taps **Activate**. The user is saved into `data/users.json`. About a minute later they can sign in.
+1. **Sign up.** A player picks a username and password. The request (with the password hashed, never in plain text) waits in `pendingSignups.json` in the saves repo.
+2. **Activate.** Waiting sign-ups show at the top of Admin → **Users**. The admin taps **Activate** (saved into `data/users.json`; they can sign in about a minute later) or **Reject**.
 3. **Play.** Puzzles are shown one at a time, page by page. Wrong answers can be retried, or players can skip.
    - **Jewels 💎:** each solved puzzle earns 2 jewels, and each of your puzzles in the game gives 1. A puzzle can have up to 4 hints; a small hint costs 2 jewels and a big one 4. A bought hint stays visible for free.
-   - **Puzzles:** players send puzzles from the site; they wait under Admin → Pending (stored in `pendingPuzzles.json` in the saves repo) until approved. Codes are only for sign-ups.
+   - **Puzzles:** players send puzzles from the site; they wait under Admin → Pending (stored in `pendingPuzzles.json` in the saves repo) until approved.
    - **Leaderboard:** ranks players by puzzles solved, then jewels. Players can show as "مجهول" (set in their profile); the admin still sees who.
-4. **Submit a puzzle.** Players fill in the puzzle form and get a **puzzle code** to send to the admin, with a picture if there is one. The admin pastes the code in Admin, attaches the picture and taps **Approve**. It's saved into `data/puzzles.json`.
+4. **Submit a puzzle.** Players fill in the puzzle form (pictures included). It waits under Admin → **Pending** until the admin approves it into `data/puzzles.json`.
 
-The admin can also deactivate or delete users and delete puzzles from the Admin page. To add your own puzzle, fill in *Submit a puzzle*, then paste the code in Admin.
+The admin can also deactivate or delete users and delete puzzles from the Admin page. Puzzles the admin adds or edits go into the game straight away.
 
 ## One-time setup (about 5 minutes, works on a phone)
 

@@ -10,6 +10,7 @@
 
 const SAVES_FILE = 'usersSavedData.json';
 const PENDING_FILE = 'pendingPuzzles.json'; // puzzles waiting for the admin, by id
+const SIGNUPS_FILE = 'pendingSignups.json'; // sign-ups waiting for the admin, by username
 const MASK = 'sawg-trivia-saves';
 
 function hideKey(key) {

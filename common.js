@@ -39,6 +39,7 @@ function normalize(s) {
 // 950 KB, 1.4 MB, 1.02 GB
 function formatSize(bytes) {
   if (bytes == null || isNaN(bytes)) return '?';
+  if (bytes === 0) return '0 KB';
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
   if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
   return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
@@ -79,47 +80,9 @@ async function hashPassword(password, salt) {
   return toHex(bits);
 }
 
-// Codes players send to the admin: "SAWG-USER-..." or "SAWG-PUZZLE-...".
-function makeCode(kind, obj) {
-  const bytes = new TextEncoder().encode(JSON.stringify(obj));
-  let bin = '';
-  bytes.forEach((b) => (bin += String.fromCharCode(b)));
-  return `SAWG-${kind}-` + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function readCode(text) {
-  const m = /SAWG-(USER|PUZZLE)-([A-Za-z0-9_-]+)/.exec(String(text || '').replace(/\s+/g, ''));
-  if (!m) throw new Error("That doesn't look like a SAWG code.");
-  const b64 = m[2].replace(/-/g, '+').replace(/_/g, '/');
-  const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
-  const obj = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
-  return { kind: m[1], data: obj };
-}
-
 async function loadJson(path) {
   // The query string skips GitHub Pages' cache so new players show up quickly.
   const res = await fetch(`${path}?t=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('تعذّر التحميل. تحقق من الإنترنت وحاول مرة أخرى.');
   return res.json();
-}
-
-// Share text on WhatsApp (or copy it) so the player can send their code.
-function shareButtons(text) {
-  const copy = el('button', { type: 'button', textContent: 'انسخ الرمز' });
-  copy.onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      copy.textContent = 'تم النسخ ✓';
-    } catch {
-      copy.textContent = 'حدد الرمز بالأعلى وانسخه';
-    }
-  };
-  const wa = el('a', {
-    className: 'button primary',
-    textContent: 'أرسل عبر واتساب',
-    href: 'https://wa.me/?text=' + encodeURIComponent(text),
-    target: '_blank',
-    rel: 'noopener',
-  });
-  return el('div', { className: 'row' }, wa, copy);
 }

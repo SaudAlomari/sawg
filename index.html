@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <header class="top">
@@ -47,7 +47,7 @@
         <p class="error" hidden></p>
         <button type="submit" class="primary">تسجيل الدخول</button>
       </form>
-      <p class="muted small signup-only" hidden>بعد التسجيل ستحصل على رمز ترسله إلى المشرف، وتستطيع اللعب بعد أن يفعّل حسابك.</p>
+      <p class="muted small signup-only" hidden>بعد التسجيل يصل طلبك إلى المشرف، وتستطيع اللعب بعد أن يفعّل حسابك.</p>
     </section>
   </template>
 
@@ -55,8 +55,6 @@
     <section class="card narrow">
       <h2 id="c-title"></h2>
       <p id="c-text"></p>
-      <textarea id="c-code" rows="5" dir="ltr" readonly></textarea>
-      <div id="c-buttons"></div>
       <p class="muted small" id="c-after"></p>
       <button class="link" id="c-back"></button>
     </section>
@@ -192,15 +190,8 @@
 
   <template id="t-admin">
     <section class="card" dir="ltr" lang="en">
-      <h2>Paste a code</h2>
-      <p class="muted small">Players send you a sign-up code. Paste it here. (Puzzles now show up under Pending.)</p>
-      <textarea id="code" rows="4" placeholder="SAWG-USER-…"></textarea>
-      <p class="error" id="code-error" hidden></p>
-      <div id="preview"></div>
-    </section>
-    <section class="card" dir="ltr" lang="en">
       <div class="tabs">
-        <button data-admin-tab="users" class="active">Users</button>
+        <button data-admin-tab="users" class="active">Users <span class="badge" id="signup-count"></span></button>
         <button data-admin-tab="pending">Pending <span class="badge" id="pending-count"></span></button>
         <button data-admin-tab="puzzles">Puzzles</button>
       </div>
@@ -225,13 +216,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 13</p>
+      <p class="muted small">Site version 14</p>
     </section>
   </template>
 
-  <script src="common.js?v=13"></script>
-  <script src="saves.js?v=13"></script>
-  <script src="admin.js?v=13"></script>
-  <script src="app.js?v=13"></script>
+  <script src="common.js?v=14"></script>
+  <script src="saves.js?v=14"></script>
+  <script src="admin.js?v=14"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
