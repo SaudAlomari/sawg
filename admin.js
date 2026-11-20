@@ -232,6 +232,7 @@ function adminView(app) {
 
     $('#saves-save').onclick = () => doSave($('#saves-save'), async () => {
       try {
+        status.textContent = '⏳ Checking the key…';
         await setUpSaves();
       } catch (e) {
         status.textContent = '❌ ' + e.message;
@@ -246,29 +247,33 @@ function adminView(app) {
       if (`${repo}`.toLowerCase() === `${SAVES_SITE_REPO}`.toLowerCase()) throw new Error('Use a separate repo for saves, not the site repo.');
       if (!key) throw new Error('Paste the saves key.');
       const headers = { Authorization: `Bearer ${key}`, Accept: 'application/vnd.github+json' };
-      const r1 = await fetch(`https://api.github.com/repos/${repo}`, { headers });
+      const r1 = await fetch(`https://api.github.com/repos/${repo}`, { headers, cache: 'no-store' });
       if (!r1.ok) throw new Error(`That key can't open ${repo}. Check the repo name and that the key has access to it.`);
       const info = await r1.json();
       if (info.permissions && !info.permissions.push) throw new Error('That key can only read. Set Contents to "Read and write".');
       // Make sure the key can't change the site repo. (The repo's "permissions"
-      // field shows the owner's rights, not the key's, so instead we send an
-      // empty save that changes nothing: a key with write access gets "422
-      // invalid request", any other key gets refused with 403/404.)
-      const probe = await fetch(`${GH_API}/contents/.saves-key-check`, {
+      // field shows the owner's rights, not the key's.) So we try a save that
+      // can't succeed: it names a wrong version of settings.json. A key with
+      // write access gets "409 conflict"; any other key is refused (403/404).
+      // Nothing is changed either way.
+      const probe = await fetch(`${GH_API}/contents/data/settings.json`, {
         method: 'PUT',
+        cache: 'no-store',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify({ message: 'key check', content: btoa('{}'), sha: '0'.repeat(40), branch: SAWG.branch }),
       });
-      if (probe.status === 422) {
+      if (probe.ok || probe.status === 409 || probe.status === 422) {
         throw new Error('That key can also change the site repo. Make a key that only has access to the saves repo.');
       }
       // Make sure usersSavedData.json exists.
+      status.textContent = `⏳ Creating usersSavedData.json in ${repo}…`;
       const testCfg = { repo, key };
       try {
         await updateSaves(testCfg, () => {}, 'Set up saves');
       } catch (e) {
         throw new Error(`Couldn't create usersSavedData.json in ${repo} (${e.message}). Check the key has Contents: Read and write.`);
       }
+      status.textContent = '⏳ Saving the settings…';
       await updateRepoJson('settings', (s) => {
         s.savesRepo = repo;
         s.saveKey = hideKey(key);
