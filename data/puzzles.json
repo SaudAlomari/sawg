@@ -188,5 +188,25 @@
     "author": "ماما صالحة",
     "by": "saliha",
     "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-mwpkkea5a20f",
+    "question": "لها ثلاث اعين و رجل واحدة",
+    "type": "text",
+    "options": [],
+    "hints": [
+      {
+        "text": "فالشارع",
+        "size": "small"
+      }
+    ],
+    "answerHashes": [
+      "a066499279a7e26043ca060e322595b860f6631ade8c94525db298e601291484"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-20"
   }
 ]
