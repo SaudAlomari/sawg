@@ -221,9 +221,11 @@ function adminView(app) {
       const cfg = savesConfig(settings);
       lastCfg = cfg;
       lastPuzzles = puzzles;
-      const saves = cfg ? await readSaves(cfg).then((r) => r.data).catch(() => null) : null;
+      const [saves, signups] = cfg
+        ? await Promise.all([readSaves(cfg).then((r) => r.data).catch(() => null), readSaves(cfg, SIGNUPS_FILE).then((r) => r.data).catch(() => ({}))])
+        : [null, {}];
       if (!$('#a-users')) return; // left the admin page meanwhile
-      renderUsers(users, saves, puzzles);
+      renderUsers(users, saves, puzzles, signups, cfg);
       const imgs = await listFolder((p) => gh(`${p}?ref=${SAWG.branch}`), 'images');
       if (!$('#a-puzzles')) return;
       renderPuzzles(puzzles, users, saves, imgs || {});
@@ -269,9 +271,13 @@ function adminView(app) {
     ]));
   }
 
-  function renderUsers(users, saves, puzzles) {
+  function renderUsers(users, saves, puzzles, signups, cfg) {
     const list = $('#a-users');
     list.replaceChildren();
+    const waiting = Object.values(signups || {}).sort((x, y) => String(x.requestedAt).localeCompare(String(y.requestedAt)));
+    $('#signup-count').textContent = waiting.length || '';
+    if (waiting.length) list.append(el('li', { className: 'empty', textContent: `🙋 ${waiting.length} waiting for you to activate:` }));
+    waiting.forEach((u) => list.append(signupCard(u, cfg)));
     [...users].reverse().forEach((u) => {
       const active = u.status === 'active';
       const row = el('div', { className: 'row' });
@@ -401,52 +407,40 @@ function adminView(app) {
     }
   }
 
-  // ----- pasted codes -----
+  // ----- sign-ups waiting for approval -----
 
-  const clearCode = () => {
-    $('#code').value = '';
-    $('#preview').replaceChildren();
-  };
-
-  $('#code').oninput = () => {
-    const err = $('#code-error');
-    $('#preview').replaceChildren();
-    showMsg(err);
-    const text = $('#code').value.trim();
-    if (!text) return;
-    let parsed;
-    try {
-      parsed = readCode(text);
-    } catch {
-      return showMsg(err, "That doesn't look like a SAWG code. Make sure you copied all of it.");
-    }
-    if (parsed.kind === 'USER') previewUser(parsed.data);
-    else $('#preview').append(el('div', { className: 'list' }, puzzleCard(parsed.data, false)));
-  };
-
-  function previewUser(u) {
-    const btn = el('button', { className: 'primary', textContent: `Activate ${u.displayName}` });
-    btn.onclick = () => doSave(btn, async () => {
+  function signupCard(u, cfg) {
+    const ok = el('button', { className: 'primary', textContent: 'Activate' });
+    ok.onclick = () => doSave(ok, async () => {
       await updateRepoJson('users', (all) => {
-        if (all.some((x) => x.username === u.username)) throw new Error(`The username "${u.username}" is already taken. Ask them to sign up with another one.`);
+        if (all.some((x) => x.username === u.username)) throw new Error(`The username "${u.username}" is already taken.`);
         all.push({
           username: normalize(u.username),
-          displayName: String(u.displayName).slice(0, 40),
+          displayName: String(u.displayName || u.username).slice(0, 40),
           salt: u.salt,
           hash: u.hash,
           status: 'active',
           joinedAt: new Date().toISOString().slice(0, 10),
         });
       }, `Activate user ${u.username}`);
-      clearCode();
+      await updateSaves(cfg, (all) => delete all[u.username], `Done with sign-up ${u.username}`, SIGNUPS_FILE);
       saved(`${u.displayName} is activated! They can sign in in about a minute.`);
       refresh();
     });
-    $('#preview').append(el('div', { className: 'list' }, el('li', {},
-      el('div', { textContent: 'Sign-up request', className: 'meta' }),
-      el('strong', { textContent: u.displayName }),
-      el('div', { className: 'meta', textContent: `Username: @${u.username}` }),
-      el('div', { className: 'row' }, btn))));
+    const no = el('button', { className: 'bad', textContent: 'Reject' });
+    no.onclick = () => {
+      if (!confirm(`Reject ${u.displayName}'s sign-up?`)) return;
+      doSave(no, async () => {
+        await updateSaves(cfg, (all) => delete all[u.username], `Reject sign-up ${u.username}`, SIGNUPS_FILE);
+        saved('Sign-up rejected.');
+        refresh();
+      });
+    };
+    return el('li', { className: 'waiting' },
+      el('strong', { textContent: u.displayName }), ' ',
+      el('span', { className: 'status pending', textContent: 'waiting' }),
+      el('div', { className: 'meta', textContent: `@${u.username} · asked ${String(u.requestedAt || '').slice(0, 10)}` }),
+      el('div', { className: 'row' }, ok, no));
   }
 
   function pictureInput() {
@@ -532,7 +526,6 @@ function adminView(app) {
       };
       await savePuzzle(p, p.answers, { q: pick(q, 'q', 'question picture'), a: pick(a, 'a', 'answer picture') });
       await removePending();
-      if (!fromPending) clearCode();
       saved(p.edits ? 'Changes approved! They show in the game in about a minute.'
         : `Puzzle added! It shows in the game in about a minute.${p.by ? ` ${p.author} gets 💎 ${PUZZLE_GIFT}.` : ''}`);
       refresh();
@@ -543,7 +536,6 @@ function adminView(app) {
       if (!confirm(p.edits ? 'Reject these changes? The puzzle stays as it is.' : 'Reject this puzzle? It and its pictures will be deleted.')) return;
       doSave(reject, async () => {
         await removePending();
-        if (!fromPending) clearCode();
         saved(p.edits ? 'Changes rejected.' : 'Puzzle rejected.');
         refresh();
       });

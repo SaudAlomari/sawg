@@ -173,7 +173,8 @@ function authView() {
         const user = users.find((u) => u.username === username);
         const ok = user && (await hashPassword(password, user.salt)) === user.hash;
         if (!ok) {
-          return showMsg(err, 'اسم المستخدم أو كلمة المرور غير صحيحة. إذا سجّلت للتو، فربما لم يفعّل المشرف حسابك بعد.');
+          if (!user && (await signupWaiting(username))) return showMsg(err, '⏳ حسابك بانتظار موافقة المشرف. حاول مرة أخرى لاحقًا.');
+          return showMsg(err, 'اسم المستخدم أو كلمة المرور غير صحيحة.');
         }
         if (user.status !== 'active') return showMsg(err, 'حسابك غير مفعّل. تواصل مع المشرف.');
         me = user;
@@ -186,21 +187,29 @@ function authView() {
         if (users.some((u) => u.username === username)) return showMsg(err, 'اسم المستخدم هذا مستخدم من قبل.');
         const salt = randomHex(16);
         if (firstRun) return await createAdmin(username, password, salt, err);
-        const code = makeCode('USER', {
+        // Everyone else waits in pendingSignups.json until the admin activates them.
+        const cfg = savesConfig(settings);
+        if (!cfg) return showMsg(err, 'التسجيل غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
+        const entry = {
           username,
           displayName: form.displayName.value.trim().slice(0, 40) || username,
           salt,
-          hash: await hashPassword(password, salt),
+          hash: await hashPassword(password, salt), // never the password itself
           requestedAt: new Date().toISOString(),
-        });
-        codeView({
-          title: 'اقتربت!',
-          text: 'أرسل رمز التسجيل هذا إلى المشرف. بعد أن يفعّل حسابك، ارجع وسجّل الدخول باسم المستخدم وكلمة المرور.',
-          code,
-          after: 'كلمة المرور مشفّرة داخل الرمز، لذلك إرساله آمن.',
-          back: 'العودة لتسجيل الدخول',
-          onBack: authView,
-        });
+        };
+        try {
+          await updateSaves(cfg, (all) => {
+            if (all[username]) throw new Error('taken');
+            all[username] = entry;
+          }, `Sign-up: ${username}`, SIGNUPS_FILE);
+        } catch (e2) {
+          return showMsg(err, e2.message === 'taken' ? 'اسم المستخدم هذا مستخدم من قبل.' : 'تعذّر التسجيل. تحقق من الإنترنت وحاول مرة أخرى.');
+        }
+        mount('t-code');
+        app.querySelector('#c-title').textContent = '✅ وصل طلبك!';
+        app.querySelector('#c-text').textContent = 'حسابك بانتظار موافقة المشرف. بعد أن يفعّله، سجّل الدخول باسم المستخدم وكلمة المرور.';
+        app.querySelector('#c-back').textContent = 'العودة لتسجيل الدخول';
+        app.querySelector('#c-back').onclick = () => authView();
       }
     } finally {
       submitBtn.disabled = false;
@@ -239,16 +248,15 @@ async function createAdmin(username, password, salt, err) {
   }
 }
 
-function codeView({ title, text, code, after, back, onBack }) {
-  mount('t-code');
-  app.querySelector('#c-title').textContent = title;
-  app.querySelector('#c-text').textContent = text;
-  app.querySelector('#c-code').value = code;
-  app.querySelector('#c-code').onclick = (e) => e.target.select();
-  app.querySelector('#c-buttons').append(shareButtons(code));
-  app.querySelector('#c-after').textContent = after;
-  app.querySelector('#c-back').textContent = back;
-  app.querySelector('#c-back').onclick = onBack;
+// Is this username waiting for the admin?
+async function signupWaiting(username) {
+  const cfg = savesConfig(settings);
+  if (!cfg) return false;
+  try {
+    return !!(await readSaves(cfg, SIGNUPS_FILE)).data[username];
+  } catch {
+    return false;
+  }
 }
 
 function play() {
@@ -589,7 +597,6 @@ function submit(edit) {
       return showMsg(err, /^(upload|saves)/.test(e2.message) ? 'تعذّر الإرسال. تحقق من الإنترنت وحاول مرة أخرى.' : e2.message);
     }
     mount('t-code');
-    app.querySelector('#c-code').hidden = true;
     app.querySelector('#c-after').textContent = '';
     if (direct) {
       app.querySelector('#c-title').textContent = '✅ تم الحفظ';
