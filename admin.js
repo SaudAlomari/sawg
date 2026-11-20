@@ -4,6 +4,7 @@
 // this browser only and is never part of the site's code.
 
 const GH_API = `https://api.github.com/repos/${SAWG.owner}/${SAWG.repo}`;
+const SAVES_SITE_REPO = `${SAWG.owner}/${SAWG.repo}`;
 const KEY_STEPS = [
   'Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token ↗</a>',
   'Name: <code>sawg admin</code>. Expiration: up to 1 year.',
@@ -70,7 +71,7 @@ async function gh(path, opts = {}, key = getKey()) {
 
 async function readRepoJson(name, key) {
   const res = await gh(`data/${name}.json?ref=${SAWG.branch}`, {}, key);
-  if (res.status === 404) return { data: [], sha: null };
+  if (res.status === 404) return { data: name === 'settings' ? {} : [], sha: null };
   if (!res.ok) throw new Error(`Could not read ${name}.json (${res.status}).`);
   const body = await res.json();
   return { data: JSON.parse(b64decodeText(body.content)), sha: body.sha };
@@ -141,15 +142,20 @@ function adminView(app) {
 
   async function refresh() {
     try {
-      const [{ data: users }, { data: puzzles }] = await Promise.all([readRepoJson('users'), readRepoJson('puzzles')]);
-      renderUsers(users);
+      const [{ data: users }, { data: puzzles }, { data: settings }] = await Promise.all([
+        readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings'),
+      ]);
+      const cfg = savesConfig(settings);
+      const saves = cfg ? await readSaves(cfg).then((r) => r.data).catch(() => null) : null;
+      renderUsers(users, saves);
       renderPuzzles(puzzles);
+      renderSaves(settings, cfg, saves);
     } catch (e) {
       $('#a-users').replaceChildren(el('li', { className: 'error', textContent: e.message }));
     }
   }
 
-  function renderUsers(users) {
+  function renderUsers(users, saves) {
     const list = $('#a-users');
     list.replaceChildren();
     [...users].reverse().forEach((u) => {
@@ -182,7 +188,7 @@ function adminView(app) {
       list.append(el('li', {},
         el('strong', { textContent: u.displayName }), ' ',
         el('span', { className: 'status ' + (active ? 'approved' : 'rejected'), textContent: u.admin ? 'admin' : u.status }),
-        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''}` }),
+        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''}` + (saves && saves[u.username] ? ` · ${saves[u.username].solved.length} solved · 💎 ${savedJewels(saves[u.username])}` : '') }),
         row));
     });
   }
@@ -210,6 +216,45 @@ function adminView(app) {
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
         el('div', { className: 'meta', textContent: `By ${p.author} · ${p.addedAt || ''}` }),
         el('div', { className: 'row' }, del)));
+    });
+  }
+
+  // ----- saving progress -----
+
+  function renderSaves(settings, cfg, saves) {
+    const status = $('#saves-status');
+    if (settings.savesRepo) $('#saves-repo').value = settings.savesRepo;
+    status.textContent = !cfg
+      ? 'Not set up yet: progress is saved on each device only.'
+      : saves
+        ? `✅ Saving to ${cfg.repo}.`
+        : `⚠️ Can't reach ${cfg.repo} with the saved key. It may have expired: paste a new one.`;
+
+    $('#saves-save').onclick = () => doSave($('#saves-save'), async () => {
+      const repo = $('#saves-repo').value.trim();
+      const key = $('#saves-key').value.trim();
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('Saves repo should look like SaudAlomari/sawg-saves');
+      if (`${repo}`.toLowerCase() === `${SAVES_SITE_REPO}`.toLowerCase()) throw new Error('Use a separate repo for saves, not the site repo.');
+      if (!key) throw new Error('Paste the saves key.');
+      const headers = { Authorization: `Bearer ${key}`, Accept: 'application/vnd.github+json' };
+      const r1 = await fetch(`https://api.github.com/repos/${repo}`, { headers });
+      if (!r1.ok) throw new Error(`That key can't open ${repo}. Check the repo name and that the key has access to it.`);
+      const info = await r1.json();
+      if (info.permissions && !info.permissions.push) throw new Error('That key can only read. Set Contents to "Read and write".');
+      const r2 = await fetch(GH_API, { headers });
+      if (r2.ok && (await r2.json()).permissions?.push) {
+        throw new Error('That key can also change the site repo. Make a key that only has access to the saves repo.');
+      }
+      // Make sure usersSavedData.json exists.
+      const testCfg = { repo, key };
+      await updateSaves(testCfg, () => {}, 'Set up saves');
+      await updateRepoJson('settings', (s) => {
+        s.savesRepo = repo;
+        s.saveKey = hideKey(key);
+      }, 'Set up saving progress');
+      $('#saves-key').value = '';
+      saved('Saving is set up! Players will start saving in about a minute.');
+      refresh();
     });
   }
 

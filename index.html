@@ -89,7 +89,7 @@
         <button class="link" id="restart">ابدأ من جديد من اللغز الأول</button>
       </div>
     </section>
-    <p class="muted small center">يُحفظ تقدمك على هذا الجهاز.</p>
+    <p class="muted small center" id="save-note">يُحفظ تقدمك على هذا الجهاز.</p>
   </template>
 
   <template id="t-submit">
@@ -146,11 +146,20 @@
       <ul id="a-users" class="list"></ul>
       <ul id="a-puzzles" class="list" hidden></ul>
       <p class="muted small">Changes show on the site about a minute after saving.</p>
-      <button id="forget" class="link">Remove GitHub key from this device</button>
+    </section>
+    <section class="card" dir="ltr" lang="en">
+      <h2>Saving progress</h2>
+      <p class="muted small">Players' progress and jewels are saved in <code>usersSavedData.json</code> in a separate repo, using a key that can only change that repo. Setup steps are in the README.</p>
+      <p class="small" id="saves-status"></p>
+      <label>Saves repo <input id="saves-repo" value="SaudAlomari/sawg-saves" autocomplete="off"></label>
+      <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
+      <div class="row"><button id="saves-save">Save</button></div>
+      <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
     </section>
   </template>
 
   <script src="common.js"></script>
+  <script src="saves.js"></script>
   <script src="admin.js"></script>
   <script src="app.js"></script>
 </body>
