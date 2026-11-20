@@ -213,6 +213,8 @@ function adminView(app) {
       list.append(el('li', {},
         el('div', { textContent: `${n + 1}. ${p.question}`, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
         p.image ? el('img', { src: p.image, alt: '' }) : null,
+        p.answerImage ? el('div', { className: 'meta', textContent: 'Answer picture:' }) : null,
+        p.answerImage ? el('img', { src: p.answerImage, alt: '' }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
         el('div', { className: 'meta', textContent: `By ${p.author} · ${p.addedAt || ''}` }),
         el('div', { className: 'row' }, del)));
@@ -332,27 +334,43 @@ function adminView(app) {
       el('div', { className: 'row' }, btn))));
   }
 
-  function previewPuzzle(p) {
-    const fileInput = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
+  function pictureInput() {
+    const input = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
     const img = el('img', { hidden: true, className: 'preview', alt: '' });
-    fileInput.onchange = () => {
-      const f = fileInput.files[0];
+    input.onchange = () => {
+      const f = input.files[0];
       img.hidden = !f;
       if (f) img.src = URL.createObjectURL(f);
     };
+    return { input, img };
+  }
+
+  function checkPicture(f, what) {
+    if (!f) return null;
+    if (f.size > 2 * 1024 * 1024) throw new Error(`The ${what} must be under 2 MB.`);
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }[f.type];
+    if (!ext) throw new Error(`The ${what} must be PNG, JPG, GIF or WEBP.`);
+    return ext;
+  }
+
+  async function uploadPicture(f, path, what, id) {
+    const res = await putFile(path, new Uint8Array(await f.arrayBuffer()), `Add ${what} for ${id}`);
+    if (!res.ok) throw new Error(`Could not upload the ${what} (${res.status}).`);
+    return path;
+  }
+
+  function previewPuzzle(p) {
+    const q = pictureInput();
+    const a = pictureInput();
     const btn = el('button', { className: 'primary', textContent: 'Approve and add to the game' });
     btn.onclick = () => doSave(btn, async () => {
       const id = 'p-' + Date.now().toString(36);
-      let image = null;
-      const f = fileInput.files[0];
-      if (f) {
-        if (f.size > 2 * 1024 * 1024) throw new Error('The picture must be under 2 MB.');
-        const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }[f.type];
-        if (!ext) throw new Error('The picture must be PNG, JPG, GIF or WEBP.');
-        image = `images/${id}.${ext}`;
-        const res = await putFile(image, new Uint8Array(await f.arrayBuffer()), `Add image for ${id}`);
-        if (!res.ok) throw new Error(`Could not upload the picture (${res.status}).`);
-      }
+      const qf = q.input.files[0];
+      const af = a.input.files[0];
+      const qExt = checkPicture(qf, 'question picture');
+      const aExt = checkPicture(af, 'answer picture');
+      const image = qf ? await uploadPicture(qf, `images/${id}.${qExt}`, 'question picture', id) : null;
+      const answerImage = af ? await uploadPicture(af, `images/${id}-answer.${aExt}`, 'answer picture', id) : null;
       const answerHashes = await Promise.all(p.answers.map((a) => hashAnswer(id, a)));
       await updateRepoJson('puzzles', (all) => {
         all.push({
@@ -363,6 +381,7 @@ function adminView(app) {
           answerHashes,
           hint: String(p.hint || '').slice(0, 300),
           image,
+          answerImage,
           author: String(p.author || 'Someone').slice(0, 40),
           addedAt: new Date().toISOString().slice(0, 10),
         });
@@ -376,10 +395,12 @@ function adminView(app) {
       el('div', { className: 'meta', textContent: `Puzzle from ${p.author}` }),
       el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
-      el('div', { className: 'meta', textContent: 'Answer: ' + p.answers.join(' | ') }),
+      el('div', { className: 'meta', textContent: (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
       p.hint ? el('div', { className: 'meta', textContent: 'Hint: ' + p.hint }) : null,
-      el('label', {}, p.hasImage ? 'Picture (they said there is one, attach it here)' : 'Picture (optional)', fileInput),
-      img,
+      el('label', {}, p.hasImage ? 'Question picture (they said there is one, attach it here)' : 'Question picture (optional)', q.input),
+      q.img,
+      el('label', {}, p.hasAnswerImage ? 'Answer picture, shown after a correct answer (they said there is one)' : 'Answer picture, shown after a correct answer (optional)', a.input),
+      a.img,
       el('div', { className: 'row' }, btn))));
   }
 
