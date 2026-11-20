@@ -36,6 +36,24 @@ function normalize(s) {
     .replace(/\s+/g, ' ');
 }
 
+// 950 KB, 1.4 MB, 1.02 GB
+function formatSize(bytes) {
+  if (bytes == null || isNaN(bytes)) return '?';
+  if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+// Size of a picture already on the site.
+async function pictureSize(url) {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    return res.ok ? (await res.blob()).size : null;
+  } catch {
+    return null;
+  }
+}
+
 function toHex(buf) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

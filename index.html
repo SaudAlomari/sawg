@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <header class="top">
@@ -106,7 +106,12 @@
           <label class="inline"><input type="radio" name="type" value="choice"> اختيار من متعدد</label>
         </fieldset>
         <div id="s-options" hidden>
-          <label>الخيارات (خيار في كل سطر، من ٢ إلى ٦) <textarea name="options" rows="4" placeholder="الخيار الأول&#10;الخيار الثاني&#10;الخيار الثالث"></textarea></label>
+          <p class="small">الخيارات الأربعة (كلها مطلوبة):</p>
+          <input name="opt" placeholder="الخيار ١" maxlength="200">
+          <input name="opt" placeholder="الخيار ٢" maxlength="200">
+          <input name="opt" placeholder="الخيار ٣" maxlength="200">
+          <input name="opt" placeholder="الخيار ٤" maxlength="200">
+          <p class="muted small">اكتب في "الإجابة الصحيحة" الخيار الصحيح كما هو. اللاعب يحصل على ٢ 💎 إذا أصاب من أول محاولة، و١ 💎 من الثانية.</p>
         </div>
         <label>الإجابة الصحيحة <input name="answers" required placeholder="مثال: الرياض"></label>
         <div id="s-alts"></div>
@@ -206,6 +211,13 @@
       <p class="muted small">Changes show on the site about a minute after saving.</p>
     </section>
     <section class="card" dir="ltr" lang="en">
+      <h2>Storage</h2>
+      <p class="muted small">GitHub suggests keeping each repo under about 1 GB. Sizes on GitHub can take a few hours to update.</p>
+      <div class="meter"><div id="st-bar" style="width:0"></div></div>
+      <p class="small" id="st-total">⏳ Checking…</p>
+      <dl class="storage" id="st-list"></dl>
+    </section>
+    <section class="card" dir="ltr" lang="en">
       <h2>Saving progress</h2>
       <p class="muted small">Players' progress and jewels are saved in <code>usersSavedData.json</code> in a separate repo, using a key that can only change that repo. Setup steps are in the README.</p>
       <p class="small" id="saves-status"></p>
@@ -213,13 +225,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 12</p>
+      <p class="muted small">Site version 13</p>
     </section>
   </template>
 
-  <script src="common.js?v=12"></script>
-  <script src="saves.js?v=12"></script>
-  <script src="admin.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+  <script src="common.js?v=13"></script>
+  <script src="saves.js?v=13"></script>
+  <script src="admin.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

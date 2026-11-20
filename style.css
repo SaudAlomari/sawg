@@ -149,3 +149,10 @@ section.card + section.card { margin-top: 16px; }
 .board li.me { border-color: var(--accent); }
 .tabs .badge { margin-inline-start: 4px; }
 .brand { font-size: 1.15rem; }
+.options button.wrong { text-decoration: line-through; color: var(--bad); border-color: var(--bad); }
+.size { color: var(--muted); font-size: .85rem; }
+#s-options input { margin-bottom: 8px; }
+.storage { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; margin: 8px 0; }
+.storage dd { margin: 0; font-weight: 700; text-align: end; }
+.meter { height: 10px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 8px 0; }
+.meter div { height: 100%; background: var(--accent); }

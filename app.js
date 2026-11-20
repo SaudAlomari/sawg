@@ -27,20 +27,21 @@ function loadProgress() {
       if (!Array.isArray(p.hinted)) p.hinted = [];
       if (!p.postponed || typeof p.postponed !== 'object') p.postponed = {};
       p.postpones = p.postpones || 0;
+      if (!p.misses || typeof p.misses !== 'object') p.misses = {};
       return p;
     }
   } catch {}
-  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0 };
+  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {} };
 }
 
-// Jewels: +2 for each solved puzzle, minus what hints cost (2 small, 4 big),
+// Jewels: +2 for each solved puzzle (multiple choice: 2 on the first try,
+// 1 on the second, 0 after), minus what hints cost (2 small, 4 big),
 // −1 for each postponed puzzle, +1 for each of your puzzles that is in the game.
 const JEWELS_PER_SOLVE = 2;
 const POSTPONE_AFTER = 3;
 const MAX_ALTS = 5; // alternative answers on top of the main one
 function jewels(progress) {
-  return progress.solved.length * JEWELS_PER_SOLVE - hintSpent(progress.hinted) - (progress.postpones || 0) * POSTPONE_COST
-    + puzzlesBy(me.username, puzzles, users).length * PUZZLE_GIFT;
+  return savedJewels(progress, puzzlesBy(me.username, puzzles, users).length);
 }
 function saveLocal(p) {
   try { localStorage.setItem(progressKey(), JSON.stringify(p)); } catch {}
@@ -58,7 +59,7 @@ let pending = null;
 async function uploadProgress(p) {
   const cfg = savesConfig(settings);
   if (!cfg || !me) return;
-  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0 } };
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {} } };
   if (uploading) return;
   uploading = true;
   while (pending) {
@@ -86,7 +87,7 @@ async function syncDown() {
     saves = data;
     me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
-    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0 });
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {} });
     else {
       const local = loadProgress();
       if (local.solved.length || local.skipped.length) await uploadProgress(local);
@@ -291,6 +292,8 @@ function play() {
 
   let chosen = null;
   if (p.type === 'choice') {
+    const note = el('p', { className: 'muted small', textContent: 'من أول محاولة: ٢ 💎 · من الثانية: ١ 💎 · بعدها: ٠' });
+    $('#p-options').before(note);
     p.options.forEach((opt) => {
       const b = el('button', { type: 'button', textContent: opt });
       b.onclick = () => {
@@ -356,11 +359,24 @@ function play() {
     fb.hidden = false;
     fb.className = 'feedback ' + (correct ? 'ok' : 'bad');
     fb.textContent = correct ? '✅ إجابة صحيحة!' : '❌ ليست صحيحة. حاول مرة أخرى!';
+    if (!correct && p.type === 'choice') {
+      // Each wrong choice lowers the reward; that choice can't be picked again.
+      progress.misses[p.id] = (progress.misses[p.id] || 0) + 1;
+      saveProgress(progress);
+      $('#p-options').querySelectorAll('button.selected').forEach((x) => {
+        x.disabled = true;
+        x.classList.remove('selected');
+        x.classList.add('wrong');
+      });
+      chosen = null;
+      const left = solveReward(progress, p.id);
+      fb.textContent += left ? ` إذا أصبت الآن تحصل على ${left} 💎.` : ' لن تحصل على جواهر لهذا اللغز، لكن تستطيع حله.';
+    }
     if (correct) {
       progress.solved.push(p.id);
       saveProgress(progress);
       showJewels();
-      fb.textContent = `✅ إجابة صحيحة! +${JEWELS_PER_SOLVE} 💎`;
+      fb.textContent = `✅ إجابة صحيحة! +${solveReward(progress, p.id)} 💎`;
       if (p.answerImage) {
         $('#p-answer-image').src = p.answerImage;
         $('#p-answer-image').hidden = false;
@@ -455,6 +471,9 @@ function submit(edit) {
   for (const [key, input, preview, label] of [['q', form.qImage, '#s-q-preview', 'صورة السؤال'], ['a', form.aImage, '#s-a-preview', 'صورة الإجابة']]) {
     const img = $(preview);
     const now = edit && (key === 'q' ? edit.image : edit.answerImage);
+    const size = el('div', { className: 'size' });
+    img.after(size);
+    if (now) pictureSize(now).then((n) => !input.files[0] && (size.textContent = `حجم ${label} الحالية: ${formatSize(n)}`));
     if (now) {
       img.src = now;
       img.hidden = false;
@@ -467,6 +486,10 @@ function submit(edit) {
       const f = input.files[0];
       img.hidden = !f && (!now || (removeBox[key] && removeBox[key].checked));
       img.src = f ? URL.createObjectURL(f) : now || '';
+      size.textContent = f ? '⏳' : '';
+      // Show the size it will have after shrinking big photos.
+      if (f) shrinkPicture(f).then((pic) => input.files[0] === f && (size.textContent = `الحجم: ${formatSize(pic.bytes.length)}` + (pic.bytes.length < f.size ? ` (صُغّرت من ${formatSize(f.size)})` : '')))
+        .catch(() => (size.textContent = 'ليست صورة صالحة'));
     };
   }
 
@@ -475,7 +498,7 @@ function submit(edit) {
     $('#s-intro').textContent = direct ? 'تُحفظ التعديلات في اللعبة مباشرة.' : 'تُرسل تعديلاتك إلى المشرف، ويبقى اللغز كما هو حتى يوافق عليها.';
     form.question.value = edit.question;
     form.type.value = edit.type === 'choice' ? 'choice' : 'text';
-    form.options.value = (edit.options || []).join('\n');
+    form.querySelectorAll('[name=opt]').forEach((x, i) => (x.value = (edit.options || [])[i] || ''));
     form.answers.required = false;
     form.answers.placeholder = 'اتركها فارغة لإبقاء الإجابات الحالية';
     puzzleHints(edit).forEach((h) => hintRow(h.text, h.size));
@@ -494,10 +517,11 @@ function submit(edit) {
       .map((s) => s.trim())
       .filter(Boolean)
       .filter((a, i, all) => all.findIndex((b) => normalize(b) === normalize(a)) === i);
-    const options = type === 'choice' ? form.options.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6) : [];
+    const options = type === 'choice' ? [...form.querySelectorAll('[name=opt]')].map((x) => x.value.trim()) : [];
     if (!answers.length && !edit) return showMsg(err, 'اكتب الإجابة الصحيحة.');
     if (type === 'choice') {
-      if (options.length < 2) return showMsg(err, 'الاختيار من متعدد يحتاج خيارين على الأقل.');
+      if (options.some((o) => !o)) return showMsg(err, 'الاختيار من متعدد يحتاج ٤ خيارات. اكتبها كلها.');
+      if (new Set(options.map(normalize)).size < 4) return showMsg(err, 'الخيارات الأربعة يجب أن تكون مختلفة.');
       if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
     }
     if (edit && !answers.length && type !== (edit.type === 'choice' ? 'choice' : 'text')) {
