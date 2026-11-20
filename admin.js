@@ -98,6 +98,20 @@ async function updateRepoJson(name, change, message, key = getKey()) {
   throw new Error('Saving failed. Please try again.');
 }
 
+// The files in a folder, as { path: bytes }, or null if it can't be read.
+async function listFolder(fetchPath, folder) {
+  try {
+    const res = await fetchPath(folder);
+    if (res.status === 404) return {};
+    if (!res.ok) return null;
+    const list = await res.json();
+    if (!Array.isArray(list)) return {};
+    return Object.fromEntries(list.filter((f) => f.type === 'file' && f.name !== '.gitkeep').map((f) => [f.path, f.size]));
+  } catch {
+    return null;
+  }
+}
+
 // ---------- adding and changing puzzles ----------
 
 async function uploadPicture(buf, path, what, id) {
@@ -178,7 +192,7 @@ function adminView(app) {
 
   const saved = (text) => {
     showMsg($('#saved'), text);
-    setTimeout(() => showMsg($('#saved')), 6000);
+    setTimeout(() => $('#saved') && showMsg($('#saved')), 6000);
   };
 
   // Run a save, with the button disabled while it works.
@@ -208,13 +222,51 @@ function adminView(app) {
       lastCfg = cfg;
       lastPuzzles = puzzles;
       const saves = cfg ? await readSaves(cfg).then((r) => r.data).catch(() => null) : null;
+      if (!$('#a-users')) return; // left the admin page meanwhile
       renderUsers(users, saves, puzzles);
-      renderPuzzles(puzzles, users, saves);
+      const imgs = await listFolder((p) => gh(`${p}?ref=${SAWG.branch}`), 'images');
+      if (!$('#a-puzzles')) return;
+      renderPuzzles(puzzles, users, saves, imgs || {});
       renderSaves(settings, cfg, saves);
-      renderPending(cfg ? await readSaves(cfg, PENDING_FILE).then((r) => r.data).catch(() => ({})) : null);
+      renderStorage(cfg, imgs);
+      const pending = cfg ? await readSaves(cfg, PENDING_FILE).then((r) => r.data).catch(() => ({})) : null;
+      if ($('#a-pending')) renderPending(pending);
     } catch (e) {
-      $('#a-users').replaceChildren(el('li', { className: 'error', textContent: e.message }));
+      if ($('#a-users')) $('#a-users').replaceChildren(el('li', { className: 'error', textContent: e.message }));
     }
+  }
+
+  // ----- storage -----
+
+  async function renderStorage(cfg, imgs) {
+    const GB = 1024 * 1024 * 1024;
+    const repoSize = async (url, key) => {
+      try {
+        const res = await fetch(url, { cache: 'no-store', headers: { Authorization: `Bearer ${key}`, Accept: 'application/vnd.github+json' } });
+        return res.ok ? ((await res.json()).size || 0) * 1024 : null;
+      } catch {
+        return null;
+      }
+    };
+    const total = (files) => (files ? Object.values(files).reduce((a, b) => a + b, 0) : null);
+    const [site, savesRepo, pendingPics] = await Promise.all([
+      repoSize(GH_API, getKey()),
+      cfg ? repoSize(`https://api.github.com/repos/${cfg.repo}`, cfg.key) : null,
+      cfg ? listFolder((p) => savesFetch(cfg, {}, p), 'pending') : null,
+    ]);
+    const rows = [
+      ['Site repo (sawg), whole history', site],
+      ['  Pictures in the game', total(imgs), imgs ? Object.keys(imgs).length : 0],
+      ...(cfg ? [['Saves repo (' + cfg.repo + ')', savesRepo], ['  Pictures waiting for approval', total(pendingPics), pendingPics ? Object.keys(pendingPics).length : 0]] : []),
+    ];
+    if (!$('#st-total')) return; // left the admin page meanwhile
+    const used = (site || 0) + (savesRepo || 0);
+    $('#st-total').textContent = `Total used: ${formatSize(used)} (${(used / GB).toFixed(3)} GB) · about 1 GB per repo is fine`;
+    $('#st-bar').style.width = Math.min(100, ((Math.max(site || 0, savesRepo || 0)) / GB) * 100) + '%';
+    $('#st-list').replaceChildren(...rows.flatMap(([label, bytes, count]) => [
+      el('dt', { textContent: label + (count ? ` (${count} files)` : '') }),
+      el('dd', { textContent: bytes == null ? '—' : formatSize(bytes) }),
+    ]));
   }
 
   function renderUsers(users, saves, puzzles) {
@@ -255,7 +307,7 @@ function adminView(app) {
     });
   }
 
-  function renderPuzzles(puzzles, users, saves) {
+  function renderPuzzles(puzzles, users, saves, imgs = {}) {
     const list = $('#a-puzzles');
     list.replaceChildren();
     if (!puzzles.length) list.append(el('li', { className: 'empty', textContent: 'No puzzles yet.' }));
@@ -275,8 +327,9 @@ function adminView(app) {
       list.append(el('li', {},
         el('div', { textContent: `${n + 1}. ${p.question}`, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
         p.image ? el('img', { src: p.image, alt: '' }) : null,
-        p.answerImage ? el('div', { className: 'meta', textContent: 'Answer picture:' }) : null,
+        p.image ? el('div', { className: 'size', textContent: `Question picture · ${formatSize(imgs[p.image])}` }) : null,
         p.answerImage ? el('img', { src: p.answerImage, alt: '' }) : null,
+        p.answerImage ? el('div', { className: 'size', textContent: `Answer picture · ${formatSize(imgs[p.answerImage])}` }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
         el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
         el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del)));
@@ -399,11 +452,13 @@ function adminView(app) {
   function pictureInput() {
     const input = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
     const img = el('img', { hidden: true, className: 'preview', alt: '' });
-    const pic = { input, img, note: el('div', { className: 'meta' }), pending: null, pendingPath: null };
+    const size = el('div', { className: 'size' });
+    const pic = { input, img, size, note: el('div', { className: 'meta' }), pending: null, pendingPath: null };
     input.onchange = () => {
       const f = input.files[0] || pic.pending;
       img.hidden = !f;
       if (f) img.src = URL.createObjectURL(f);
+      size.textContent = f ? `Size: ${formatSize(f.size)}` : '';
     };
     return pic;
   }
@@ -436,6 +491,7 @@ function adminView(app) {
         if (now && remove[key]) pic.note.textContent = '🗑️ They asked to remove the current picture. You can attach one instead:';
         else if (now) {
           pic.note.textContent = 'No change: keeps the current picture (choose a file to replace it):';
+          pictureSize(now).then((n) => !pic.input.files[0] && (pic.size.textContent = `Size: ${formatSize(n)}`));
           pic.img.src = now;
           pic.img.hidden = false;
         } else pic.note.textContent = 'None. You can attach one:';
@@ -450,6 +506,7 @@ function adminView(app) {
       savesGetBlob(cfg, path).then((blob) => {
         pic.pending = blob;
         pic.note.textContent = 'Their picture (choose a file to replace it):';
+        if (!pic.input.files[0]) pic.size.textContent = `Size: ${formatSize(blob.size)}`;
         if (!pic.input.files[0]) {
           pic.img.src = URL.createObjectURL(blob);
           pic.img.hidden = false;
@@ -499,8 +556,8 @@ function adminView(app) {
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
       el('div', { className: 'meta', textContent: !p.answers.length ? 'Answers: no change' : (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
       ...hints.map((h, i) => el('div', { className: 'meta', textContent: `Hint ${i + 1} (${h.size === 'small' ? 'small, 2 💎' : 'big, 4 💎'}): ${h.text}` })),
-      el('h3', { textContent: 'Question picture' }), q.note, q.input, q.img,
-      el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note, a.input, a.img,
+      el('h3', { textContent: 'Question picture' }), q.note, q.input, q.img, q.size,
+      el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note, a.input, a.img, a.size,
       el('div', { className: 'row' }, btn, reject));
   }
 

@@ -167,8 +167,15 @@ function hintSpent(hinted) {
   }, 0);
 }
 
+// What solving a puzzle earns: 2, but 1 less for each wrong multiple-choice try.
+function solveReward(entry, id) {
+  return Math.max(0, 2 - ((entry.misses || {})[id] || 0));
+}
+
 function savedJewels(entry, gifts = 0) {
-  return (entry ? (entry.solved || []).length * 2 - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST : 0) + gifts * PUZZLE_GIFT;
+  if (!entry) return gifts * PUZZLE_GIFT;
+  const earned = (entry.solved || []).reduce((sum, id) => sum + solveReward(entry, id), 0);
+  return earned - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST + gifts * PUZZLE_GIFT;
 }
 
 // ---------- leaderboard ----------
