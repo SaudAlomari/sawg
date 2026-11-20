@@ -12,14 +12,13 @@
     <nav id="nav" hidden>
       <a href="#play">Play</a>
       <a href="#submit">Submit a puzzle</a>
+      <a href="#admin" id="nav-admin" hidden>Admin</a>
       <span class="muted small" id="whoami"></span>
       <button id="signout" class="link">Sign out</button>
     </nav>
   </header>
 
   <main id="app"><p class="center muted">Loading…</p></main>
-
-  <footer class="center small"><a href="admin.html" class="muted">Admin</a></footer>
 
   <!-- ===== Templates ===== -->
 
@@ -31,8 +30,16 @@
       </div>
       <form id="auth-form">
         <label>Username <input name="username" autocomplete="username" autocapitalize="off" required></label>
-        <label class="signup-only" hidden>Display name <input name="displayName" maxlength="40" placeholder="What others see"></label>
+        <label class="signup-name" hidden>Display name <input name="displayName" maxlength="40" placeholder="What others see"></label>
         <label>Password <input name="password" type="password" autocomplete="current-password" required minlength="6"></label>
+        <div class="first-only" hidden>
+          <p class="hint">👑 You're the first one here, so you'll be the <b>admin</b>. To let the site save players and puzzles into your GitHub repo, paste a GitHub key once.</p>
+          <label>GitHub key <input name="token" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+          <details class="small">
+            <summary>How do I get a GitHub key?</summary>
+            <ol class="small key-steps"></ol>
+          </details>
+        </div>
         <p class="error" hidden></p>
         <button type="submit" class="primary">Sign in</button>
       </form>
@@ -105,7 +112,42 @@
     </section>
   </template>
 
+  <template id="t-admin-key">
+    <section class="card narrow">
+      <h2>Connect to GitHub</h2>
+      <p>To save players and puzzles from this device, paste your GitHub key. It's saved only on this device.</p>
+      <ol class="small key-steps"></ol>
+      <form id="key-form">
+        <label>GitHub key <input name="token" type="password" autocomplete="off" required placeholder="github_pat_…"></label>
+        <p class="error" hidden></p>
+        <button class="primary" type="submit">Save key</button>
+      </form>
+    </section>
+  </template>
+
+  <template id="t-admin">
+    <section class="card">
+      <h2>Paste a code</h2>
+      <p class="muted small">Players send you a sign-up code or a puzzle code. Paste it here.</p>
+      <textarea id="code" rows="4" placeholder="SAWG-USER-… or SAWG-PUZZLE-…"></textarea>
+      <p class="error" id="code-error" hidden></p>
+      <div id="preview"></div>
+    </section>
+    <section class="card">
+      <div class="tabs">
+        <button data-admin-tab="users" class="active">Users</button>
+        <button data-admin-tab="puzzles">Puzzles</button>
+      </div>
+      <p class="success" id="saved" hidden></p>
+      <ul id="a-users" class="list"></ul>
+      <ul id="a-puzzles" class="list" hidden></ul>
+      <p class="muted small">Changes show on the site about a minute after saving.</p>
+      <button id="forget" class="link">Remove GitHub key from this device</button>
+    </section>
+  </template>
+
   <script src="common.js"></script>
+  <script src="admin.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

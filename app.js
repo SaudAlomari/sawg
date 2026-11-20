@@ -35,7 +35,7 @@ function remember(username) {
 
 // ---------- routing ----------
 
-const views = { play, submit };
+const views = { play, submit, admin: () => adminView(app) };
 
 function route() {
   const nav = document.getElementById('nav');
@@ -45,8 +45,9 @@ function route() {
   }
   nav.hidden = false;
   document.getElementById('whoami').textContent = me.displayName;
+  document.getElementById('nav-admin').hidden = !me.admin;
   let page = location.hash.slice(1) || 'play';
-  if (!views[page]) page = 'play';
+  if (!views[page] || (page === 'admin' && !me.admin)) page = 'play';
   nav.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + page));
   views[page]();
 }
@@ -67,17 +68,23 @@ function authView() {
   const form = app.querySelector('#auth-form');
   const err = form.querySelector('.error');
   const submitBtn = form.querySelector('[type=submit]');
+  // Nobody has signed up yet: the first sign-up becomes the admin.
+  const firstRun = users.length === 0;
+  fillKeySteps(app);
   let mode = 'signin';
-  app.querySelectorAll('[data-tab]').forEach((btn) => {
-    btn.onclick = () => {
-      mode = btn.dataset.tab;
-      app.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('active', b === btn));
-      app.querySelectorAll('.signup-only').forEach((x) => (x.hidden = mode !== 'signup'));
-      submitBtn.textContent = mode === 'signup' ? 'Sign up' : 'Sign in';
-      form.password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
-      showMsg(err);
-    };
-  });
+  const setMode = (m) => {
+    mode = m;
+    app.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === m));
+    app.querySelectorAll('.signup-only').forEach((x) => (x.hidden = m !== 'signup' || firstRun));
+    app.querySelectorAll('.signup-name').forEach((x) => (x.hidden = m !== 'signup'));
+    app.querySelectorAll('.first-only').forEach((x) => (x.hidden = m !== 'signup' || !firstRun));
+    form.token.required = m === 'signup' && firstRun;
+    submitBtn.textContent = m === 'signup' ? (firstRun ? 'Create admin account' : 'Sign up') : 'Sign in';
+    form.password.autocomplete = m === 'signup' ? 'new-password' : 'current-password';
+    showMsg(err);
+  };
+  app.querySelectorAll('[data-tab]').forEach((btn) => (btn.onclick = () => setMode(btn.dataset.tab)));
+  if (firstRun) setMode('signup');
 
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -101,6 +108,7 @@ function authView() {
         if (password.length < 6) return showMsg(err, 'Password must be at least 6 characters.');
         if (users.some((u) => u.username === username)) return showMsg(err, 'That username is taken.');
         const salt = randomHex(16);
+        if (firstRun) return await createAdmin(username, password, salt, err);
         const code = makeCode('USER', {
           username,
           displayName: form.displayName.value.trim().slice(0, 40) || username,
@@ -121,6 +129,37 @@ function authView() {
       submitBtn.disabled = false;
     }
   };
+}
+
+// The very first sign-up: saved straight into users.json as an active admin,
+// using the GitHub key they paste (which is then kept on this device).
+async function createAdmin(username, password, salt, err) {
+  const form = app.querySelector('#auth-form');
+  const key = form.token.value.trim();
+  try {
+    await checkKey(key);
+    const user = {
+      username,
+      displayName: form.displayName.value.trim().slice(0, 40) || username,
+      salt,
+      hash: await hashPassword(password, salt),
+      status: 'active',
+      admin: true,
+      joinedAt: new Date().toISOString().slice(0, 10),
+    };
+    await updateRepoJson('users', (all) => {
+      if (all.length) throw new Error('Someone has already signed up as the admin. Please reload the page.');
+      all.push(user);
+    }, `Create admin account ${username}`, key);
+    setKey(key);
+    users.push(user);
+    me = user;
+    remember(user.username);
+    location.hash = '#admin';
+    route();
+  } catch (e) {
+    showMsg(err, e.message);
+  }
 }
 
 function codeView({ title, text, code, after, back, onBack }) {
@@ -269,7 +308,19 @@ function submit() {
 
 // ---------- start ----------
 
-Promise.all([loadJson('data/users.json'), loadJson('data/puzzles.json')])
+// The admin's device reads straight from GitHub so changes show at once;
+// everyone else reads the published site files.
+async function loadData() {
+  if (getKey()) {
+    try {
+      const [u, p] = await Promise.all([readRepoJson('users'), readRepoJson('puzzles')]);
+      return [u.data, p.data];
+    } catch {}
+  }
+  return Promise.all([loadJson('data/users.json'), loadJson('data/puzzles.json')]);
+}
+
+loadData()
   .then(([u, p]) => {
     users = u;
     puzzles = p;
