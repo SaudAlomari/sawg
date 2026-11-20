@@ -63,7 +63,7 @@
 
   <template id="t-play">
     <section class="card">
-      <div class="progress"><span id="p-count"></span><div class="bar"><div id="p-bar"></div></div></div>
+      <div class="progress"><span id="p-count"></span><div class="bar"><div id="p-bar"></div></div><span class="jewels" id="p-jewels" title="جواهرك"></span></div>
       <div id="puzzle">
         <p class="muted small" id="p-author"></p>
         <h2 id="p-question"></h2>
@@ -74,7 +74,7 @@
           <p id="p-feedback" class="feedback" hidden></p>
           <div class="row">
             <button type="submit" class="primary" id="p-submit">تحقق من الإجابة</button>
-            <button type="button" id="p-hint" hidden>أظهر التلميح</button>
+            <button type="button" id="p-hint">💡 التلميح (٥ 💎)</button>
             <button type="button" id="p-skip" class="link">تخطَّ</button>
           </div>
           <p id="p-hint-text" class="hint" hidden></p>
@@ -84,6 +84,7 @@
       <div id="done" class="center" hidden>
         <h2>🎉 أنهيت كل الألغاز!</h2>
         <p id="done-score"></p>
+        <p class="jewels big" id="done-jewels"></p>
         <p>تظهر الألغاز الجديدة هنا بعد موافقة المشرف. لماذا لا <a href="#submit">تضيف لغزًا</a>؟</p>
         <button class="link" id="restart">ابدأ من جديد من اللغز الأول</button>
       </div>

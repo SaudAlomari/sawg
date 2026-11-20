@@ -19,9 +19,19 @@ function progressKey() {
 function loadProgress() {
   try {
     const p = JSON.parse(localStorage.getItem(progressKey()));
-    if (p && Array.isArray(p.solved) && Array.isArray(p.skipped)) return p;
+    if (p && Array.isArray(p.solved) && Array.isArray(p.skipped)) {
+      if (!Array.isArray(p.hinted)) p.hinted = [];
+      return p;
+    }
   } catch {}
-  return { solved: [], skipped: [] };
+  return { solved: [], skipped: [], hinted: [] };
+}
+
+// Jewels: +2 for each solved puzzle, −5 for each hint opened.
+const JEWELS_PER_SOLVE = 2;
+const HINT_COST = 5;
+function jewels(progress) {
+  return progress.solved.length * JEWELS_PER_SOLVE - progress.hinted.length * HINT_COST;
 }
 function saveProgress(p) {
   try { localStorage.setItem(progressKey(), JSON.stringify(p)); } catch {}
@@ -183,6 +193,8 @@ function play() {
   const p = puzzles.find((x) => !done.has(x.id));
 
   $('#p-bar').style.width = puzzles.length ? (doneCount / puzzles.length) * 100 + '%' : '0';
+  const showJewels = () => ($('#p-jewels').textContent = `💎 ${jewels(progress)}`);
+  showJewels();
 
   if (!p) {
     $('#p-count').textContent = `${puzzles.length} من ${puzzles.length}`;
@@ -190,9 +202,10 @@ function play() {
     $('#done').hidden = false;
     const solved = puzzles.filter((x) => progress.solved.includes(x.id)).length;
     $('#done-score').textContent = `حللت ${solved} من ${puzzles.length}.`;
+    $('#done-jewels').textContent = `💎 ${jewels(progress)} جوهرة`;
     $('#restart').onclick = () => {
-      if (!confirm('تبدأ من جديد من اللغز الأول؟ سيُمسح تقدمك على هذا الجهاز.')) return;
-      saveProgress({ solved: [], skipped: [] });
+      if (!confirm('تبدأ من جديد من اللغز الأول؟ سيُمسح تقدمك وجواهرك على هذا الجهاز.')) return;
+      saveProgress({ solved: [], skipped: [], hinted: [] });
       play();
     };
     return;
@@ -221,12 +234,29 @@ function play() {
     $('#p-text').focus();
   }
 
-  if (p.hint) {
-    $('#p-hint').hidden = false;
-    $('#p-hint').onclick = () => {
-      $('#p-hint-text').textContent = '💡 ' + p.hint;
-      $('#p-hint-text').hidden = false;
-      $('#p-hint').hidden = true;
+  // Hint: costs jewels, and is free to look at again once bought.
+  const hintBtn = $('#p-hint');
+  const revealHint = () => {
+    $('#p-hint-text').textContent = '💡 ' + p.hint;
+    $('#p-hint-text').hidden = false;
+    hintBtn.hidden = true;
+  };
+  if (!p.hint) {
+    hintBtn.disabled = true;
+    hintBtn.textContent = 'لا يوجد تلميح';
+  } else if (progress.hinted.includes(p.id)) {
+    revealHint();
+  } else if (jewels(progress) < HINT_COST) {
+    hintBtn.disabled = true;
+    hintBtn.title = `تحتاج ${HINT_COST} جواهر للتلميح`;
+    hintBtn.textContent = `💡 التلميح يحتاج ${HINT_COST} 💎`;
+  } else {
+    hintBtn.onclick = () => {
+      if (!confirm(`تستخدم ${HINT_COST} جواهر لرؤية التلميح؟`)) return;
+      progress.hinted.push(p.id);
+      saveProgress(progress);
+      showJewels();
+      revealHint();
     };
   }
 
@@ -252,6 +282,8 @@ function play() {
     if (correct) {
       progress.solved.push(p.id);
       saveProgress(progress);
+      showJewels();
+      fb.textContent = `✅ إجابة صحيحة! +${JEWELS_PER_SOLVE} 💎`;
       finish();
     }
   };
