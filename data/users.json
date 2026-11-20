@@ -23,5 +23,13 @@
     "hash": "75b6866232b9b5c630758e38b3a33cf2b516651e3fcddef696d5de54d1d2f483",
     "status": "active",
     "joinedAt": "2026-11-20"
+  },
+  {
+    "username": "saliha",
+    "displayName": "ماما صالحة",
+    "salt": "63fa722175bbd24d4aabc4af1f6f002d",
+    "hash": "1b73aadf63582a091e8517076c6f3c690f11af5510110da2383f6ab77d8ae8f0",
+    "status": "active",
+    "joinedAt": "2026-11-20"
   }
 ]
