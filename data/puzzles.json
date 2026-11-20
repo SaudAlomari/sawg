@@ -145,5 +145,25 @@
     "author": "ماما صالحة",
     "by": "saliha",
     "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-mwpjqt1t4c90",
+    "question": "اطول الكهيل ماتلحق ذنب البعير",
+    "type": "choice",
+    "options": [
+      "القمر",
+      "العين",
+      "الايد",
+      "السكة"
+    ],
+    "hints": [],
+    "answerHashes": [
+      "074f183b7ef84dace740afa60a08e47da617dda3a589c4fc9b35d6008b91c60b"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "ماما صالحة",
+    "by": "saliha",
+    "addedAt": "2026-11-20"
   }
 ]
