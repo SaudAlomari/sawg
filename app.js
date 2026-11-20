@@ -25,18 +25,21 @@ function loadProgress() {
     const p = JSON.parse(localStorage.getItem(progressKey()));
     if (p && Array.isArray(p.solved) && Array.isArray(p.skipped)) {
       if (!Array.isArray(p.hinted)) p.hinted = [];
+      if (!p.postponed || typeof p.postponed !== 'object') p.postponed = {};
+      p.postpones = p.postpones || 0;
       return p;
     }
   } catch {}
-  return { solved: [], skipped: [], hinted: [] };
+  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0 };
 }
 
 // Jewels: +2 for each solved puzzle, minus what hints cost (2 small, 4 big),
-// +1 for each of your puzzles that is in the game.
+// −1 for each postponed puzzle, +1 for each of your puzzles that is in the game.
 const JEWELS_PER_SOLVE = 2;
+const POSTPONE_AFTER = 3;
 const MAX_ALTS = 5; // alternative answers on top of the main one
 function jewels(progress) {
-  return progress.solved.length * JEWELS_PER_SOLVE - hintSpent(progress.hinted)
+  return progress.solved.length * JEWELS_PER_SOLVE - hintSpent(progress.hinted) - (progress.postpones || 0) * POSTPONE_COST
     + puzzlesBy(me.username, puzzles, users).length * PUZZLE_GIFT;
 }
 function saveLocal(p) {
@@ -55,7 +58,7 @@ let pending = null;
 async function uploadProgress(p) {
   const cfg = savesConfig(settings);
   if (!cfg || !me) return;
-  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted } };
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0 } };
   if (uploading) return;
   uploading = true;
   while (pending) {
@@ -83,7 +86,7 @@ async function syncDown() {
     saves = data;
     me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
-    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [] });
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0 });
     else {
       const local = loadProgress();
       if (local.solved.length || local.skipped.length) await uploadProgress(local);
@@ -253,7 +256,10 @@ function play() {
   const progress = loadProgress();
   const done = new Set([...progress.solved, ...progress.skipped]);
   const doneCount = puzzles.filter((p) => done.has(p.id)).length;
-  const p = puzzles.find((x) => !done.has(x.id));
+  // A postponed puzzle waits until 3 more puzzles are done (or nothing else is left).
+  const left = puzzles.filter((x) => !done.has(x.id));
+  const waiting = (x) => (progress.postponed[x.id] || 0) > doneCount;
+  const p = left.find((x) => !waiting(x)) || [...left].sort((x, y) => progress.postponed[x.id] - progress.postponed[y.id])[0];
 
   $('#p-bar').style.width = puzzles.length ? (doneCount / puzzles.length) * 100 + '%' : '0';
   const showJewels = () => ($('#p-jewels').textContent = `💎 ${jewels(progress)}`);
@@ -333,6 +339,7 @@ function play() {
   const finish = () => {
     $('#p-submit').hidden = true;
     $('#p-skip').hidden = true;
+    $('#p-postpone').hidden = true;
     solvedNow = true;
     showHints();
     $('#p-text').disabled = true;
@@ -362,6 +369,24 @@ function play() {
     }
   };
 
+  // Postpone: costs 1 jewel, the puzzle comes back after 3 more puzzles.
+  const postpone = $('#p-postpone');
+  const others = left.filter((x) => x.id !== p.id && !waiting(x)).length;
+  if (!others) {
+    postpone.disabled = true;
+    postpone.title = 'لا توجد ألغاز أخرى الآن';
+  } else if (jewels(progress) < POSTPONE_COST) {
+    postpone.disabled = true;
+    postpone.title = `تحتاج ${POSTPONE_COST} جوهرة`;
+  }
+  postpone.onclick = () => {
+    if (!confirm('تؤجل هذا اللغز مقابل جوهرة واحدة؟ سيظهر لك مرة أخرى بعد ٣ ألغاز.')) return;
+    progress.postponed[p.id] = doneCount + POSTPONE_AFTER;
+    progress.postpones = (progress.postpones || 0) + 1;
+    saveProgress(progress);
+    play();
+  };
+
   $('#p-skip').onclick = () => {
     if (!confirm('تتخطى هذا اللغز؟ سيُحسب غير محلول.')) return;
     progress.skipped.push(p.id);
@@ -372,17 +397,21 @@ function play() {
   $('#p-next').onclick = play;
 }
 
-function submit() {
+// Add a puzzle, or change one (edit = the puzzle). Players' puzzles and
+// changes wait for the admin; the admin's own are saved straight away.
+function submit(edit) {
+  if (edit instanceof Event || (edit && !edit.id)) edit = null;
   mount('t-submit');
-  const form = app.querySelector('#submit-form');
+  const $ = (s) => app.querySelector(s);
+  const form = $('#submit-form');
   const err = form.querySelector('.error');
-  form.querySelectorAll('[name=type]').forEach((r) => {
-    r.onchange = () => (app.querySelector('#s-options').hidden = form.type.value !== 'choice');
-  });
+  const direct = me.admin && !!getKey();
+  const setType = () => ($('#s-options').hidden = form.type.value !== 'choice');
+  form.querySelectorAll('[name=type]').forEach((r) => (r.onchange = setType));
 
   // Up to 5 alternative answers, each in its own box.
-  const alts = app.querySelector('#s-alts');
-  const addAlt = app.querySelector('#s-add-alt');
+  const alts = $('#s-alts');
+  const addAlt = $('#s-add-alt');
   const updateAddAlt = () => (addAlt.hidden = alts.children.length >= MAX_ALTS);
   addAlt.onclick = () => {
     const input = el('input', { name: 'alt', placeholder: `إجابة بديلة ${alts.children.length + 1}`, maxLength: 200 });
@@ -399,14 +428,15 @@ function submit() {
   };
 
   // Up to 4 hints, each small or big.
-  const hintsBox = app.querySelector('#s-hints');
-  const addHint = app.querySelector('#s-add-hint');
+  const hintsBox = $('#s-hints');
+  const addHint = $('#s-add-hint');
   const updateAddHint = () => (addHint.hidden = hintsBox.children.length >= MAX_HINTS);
-  addHint.onclick = () => {
-    const input = el('input', { placeholder: `التلميح ${hintsBox.children.length + 1}`, maxLength: 300 });
+  const hintRow = (text = '', sizeValue = 'small') => {
+    const input = el('input', { placeholder: `التلميح ${hintsBox.children.length + 1}`, maxLength: 300, value: text });
     const size = el('select', { title: 'حجم التلميح' },
       el('option', { value: 'small', textContent: 'صغير (٢ 💎)' }),
       el('option', { value: 'big', textContent: 'كبير (٤ 💎)' }));
+    size.value = sizeValue === 'big' ? 'big' : 'small';
     const remove = el('button', { type: 'button', className: 'link', textContent: '✕', title: 'احذف' });
     const row = el('div', { className: 'hint-row' }, input, size, remove);
     remove.onclick = () => {
@@ -416,18 +446,44 @@ function submit() {
     };
     hintsBox.append(row);
     updateAddHint();
-    input.focus();
+    return input;
   };
+  addHint.onclick = () => hintRow().focus();
 
-  for (const [input, preview] of [[form.qImage, '#s-q-preview'], [form.aImage, '#s-a-preview']]) {
+  // Pictures: preview a new one; when editing, show the current one with a remove box.
+  const removeBox = {};
+  for (const [key, input, preview, label] of [['q', form.qImage, '#s-q-preview', 'صورة السؤال'], ['a', form.aImage, '#s-a-preview', 'صورة الإجابة']]) {
+    const img = $(preview);
+    const now = edit && (key === 'q' ? edit.image : edit.answerImage);
+    if (now) {
+      img.src = now;
+      img.hidden = false;
+      removeBox[key] = el('input', { type: 'checkbox' });
+      removeBox[key].onchange = () => (img.hidden = removeBox[key].checked && !input.files[0]);
+      img.after(el('label', { className: 'inline' }, removeBox[key], ` احذف ${label} الحالية`));
+      input.parentElement.firstChild.textContent = `غيّر ${label} (اختياري) `;
+    }
     input.onchange = () => {
       const f = input.files[0];
-      const img = app.querySelector(preview);
-      img.hidden = !f;
-      if (f) img.src = URL.createObjectURL(f);
+      img.hidden = !f && (!now || (removeBox[key] && removeBox[key].checked));
+      img.src = f ? URL.createObjectURL(f) : now || '';
     };
   }
+
+  if (edit) {
+    $('#s-title').textContent = '✏️ عدّل اللغز';
+    $('#s-intro').textContent = direct ? 'تُحفظ التعديلات في اللعبة مباشرة.' : 'تُرسل تعديلاتك إلى المشرف، ويبقى اللغز كما هو حتى يوافق عليها.';
+    form.question.value = edit.question;
+    form.type.value = edit.type === 'choice' ? 'choice' : 'text';
+    form.options.value = (edit.options || []).join('\n');
+    form.answers.required = false;
+    form.answers.placeholder = 'اتركها فارغة لإبقاء الإجابات الحالية';
+    puzzleHints(edit).forEach((h) => hintRow(h.text, h.size));
+    form.querySelector('[type=submit]').textContent = direct ? 'احفظ التعديلات' : 'أرسل التعديلات';
+  }
+  setType();
   const submitBtn = form.querySelector('[type=submit]');
+  const btnLabel = submitBtn.textContent;
 
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -439,60 +495,94 @@ function submit() {
       .filter(Boolean)
       .filter((a, i, all) => all.findIndex((b) => normalize(b) === normalize(a)) === i);
     const options = type === 'choice' ? form.options.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6) : [];
-    if (!answers.length) return showMsg(err, 'اكتب الإجابة الصحيحة.');
+    if (!answers.length && !edit) return showMsg(err, 'اكتب الإجابة الصحيحة.');
     if (type === 'choice') {
       if (options.length < 2) return showMsg(err, 'الاختيار من متعدد يحتاج خيارين على الأقل.');
       if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
+    }
+    if (edit && !answers.length && type !== (edit.type === 'choice' ? 'choice' : 'text')) {
+      return showMsg(err, 'غيّرت نوع الإجابة، فاكتب الإجابة الصحيحة من جديد.');
     }
     const hints = [...hintsBox.querySelectorAll('.hint-row')]
       .map((row) => ({ text: row.querySelector('input').value.trim().slice(0, 300), size: row.querySelector('select').value }))
       .filter((h) => h.text);
     const cfg = savesConfig(settings);
-    if (!cfg) return showMsg(err, 'إرسال الألغاز غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
-    const qFile = form.qImage.files[0];
-    const aFile = form.aImage.files[0];
+    if (!direct && !cfg) return showMsg(err, 'إرسال الألغاز غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
+    const files = { q: form.qImage.files[0], a: form.aImage.files[0] };
+    const removed = { q: !!(removeBox.q && removeBox.q.checked), a: !!(removeBox.a && removeBox.a.checked) };
+    const entry = {
+      question: form.question.value.trim().slice(0, 1000),
+      type,
+      options,
+      hints,
+      author: me.displayName,
+      by: me.username,
+      ...(edit ? { edits: edit.id } : {}),
+    };
     submitBtn.disabled = true;
     try {
-      const id = 'p-' + Date.now().toString(36) + randomHex(2);
-      const images = {};
-      for (const [key, file, label] of [['q', qFile, 'صورة السؤال'], ['a', aFile, 'صورة الإجابة']]) {
-        if (!file) continue;
+      const pics = {};
+      for (const [key, label] of [['q', 'صورة السؤال'], ['a', 'صورة الإجابة']]) {
+        if (!files[key]) continue;
         submitBtn.textContent = '⏳ جارٍ رفع الصور…';
-        const pic = await shrinkPicture(file).catch(() => null);
+        const pic = await shrinkPicture(files[key]).catch(() => null);
         if (!pic) throw new Error(`${label} ليست صورة صالحة.`);
         if (pic.bytes.length > 2 * 1024 * 1024) throw new Error(`${label} كبيرة جدًا. اختر صورة أصغر.`);
-        const path = `pending/${id}-${key}.${pic.ext}`;
-        await savesPutFile(cfg, path, pic.bytes, `Puzzle picture from ${me.username}`);
-        images[key] = path;
+        pics[key] = pic;
       }
-      submitBtn.textContent = '⏳ جارٍ الإرسال…';
-      await updateSaves(cfg, (all) => {
-        all[id] = {
-          id,
-          question: form.question.value.trim().slice(0, 1000),
-          type,
-          options,
-          // Lightly scrambled so the answers aren't sitting there in plain text.
-          answersHidden: hideKey(JSON.stringify(answers)),
-          hints,
-          images,
-          author: me.displayName,
-          by: me.username,
-          submittedAt: new Date().toISOString(),
-        };
-      }, `Puzzle from ${me.username}`, PENDING_FILE);
+      submitBtn.textContent = '⏳ جارٍ الحفظ…';
+      if (direct) {
+        // The admin: straight into the game.
+        const pick = (key) => (pics[key] ? { bytes: Promise.resolve(pics[key].bytes.buffer), ext: pics[key].ext } : edit ? (removed[key] ? null : undefined) : null);
+        await savePuzzle({ ...entry, id: 'p-' + Date.now().toString(36) + randomHex(2) }, answers, { q: pick('q'), a: pick('a') });
+        await refreshData();
+      } else {
+        const id = edit ? edit.id : 'p-' + Date.now().toString(36) + randomHex(2);
+        const key = edit ? 'edit-' + edit.id : id;
+        const tag = edit ? Date.now().toString(36) : '';
+        const images = {};
+        for (const k of ['q', 'a']) {
+          if (!pics[k]) continue;
+          const path = `pending/${id}${tag ? '-' + tag : ''}-${k}.${pics[k].ext}`;
+          await savesPutFile(cfg, path, pics[k].bytes, `Puzzle picture from ${me.username}`);
+          images[k] = path;
+        }
+        await updateSaves(cfg, (all) => {
+          all[key] = {
+            ...entry,
+            id,
+            // Lightly scrambled so the answers aren't sitting there in plain text.
+            answersHidden: answers.length ? hideKey(JSON.stringify(answers)) : null,
+            images,
+            ...(edit ? { remove: removed } : {}),
+            submittedAt: new Date().toISOString(),
+          };
+        }, `${edit ? 'Puzzle changes' : 'Puzzle'} from ${me.username}`, PENDING_FILE);
+      }
     } catch (e2) {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'أرسل اللغز';
+      submitBtn.textContent = btnLabel;
       return showMsg(err, /^(upload|saves)/.test(e2.message) ? 'تعذّر الإرسال. تحقق من الإنترنت وحاول مرة أخرى.' : e2.message);
     }
     mount('t-code');
-    app.querySelector('#c-title').textContent = '✅ وصل لغزك!';
-    app.querySelector('#c-text').textContent = 'أُرسل لغزك إلى المشرف، وسيظهر في اللعبة بعد موافقته. تحصل على جوهرة هدية عند قبوله.';
     app.querySelector('#c-code').hidden = true;
     app.querySelector('#c-after').textContent = '';
-    app.querySelector('#c-back').textContent = 'أضف لغزًا آخر';
-    app.querySelector('#c-back').onclick = submit;
+    if (direct) {
+      app.querySelector('#c-title').textContent = '✅ تم الحفظ';
+      app.querySelector('#c-text').textContent = 'يظهر في اللعبة خلال دقيقة تقريبًا.';
+    } else if (edit) {
+      app.querySelector('#c-title').textContent = '✅ وصلت تعديلاتك!';
+      app.querySelector('#c-text').textContent = 'أُرسلت تعديلاتك إلى المشرف. يبقى لغزك كما هو حتى يوافق عليها.';
+    } else {
+      app.querySelector('#c-title').textContent = '✅ وصل لغزك!';
+      app.querySelector('#c-text').textContent = 'أُرسل لغزك إلى المشرف، وسيظهر في اللعبة بعد موافقته. تحصل على جوهرة هدية عند قبوله.';
+    }
+    app.querySelector('#c-back').textContent = !edit ? 'أضف لغزًا آخر' : location.hash === '#admin' ? 'Back to Admin' : 'ارجع إلى ملفي';
+    app.querySelector('#c-back').onclick = () => {
+      if (!edit) return submit();
+      if (location.hash === '#admin' || location.hash === '#profile') return route();
+      location.hash = '#profile';
+    };
   };
 }
 
@@ -526,7 +616,11 @@ function profile() {
   const cfg0 = savesConfig(settings);
   if (cfg0) {
     readSaves(cfg0, PENDING_FILE)
-      .then(({ data }) => ($('#pr-pending').textContent = Object.values(data).filter((x) => x.by === me.username).length))
+      .then(({ data }) => {
+        const waiting = Object.values(data).filter((x) => x.by === me.username);
+        $('#pr-pending').textContent = waiting.filter((x) => !x.edits).length;
+        waiting.filter((x) => x.edits && editNotes[x.edits]).forEach((x) => (editNotes[x.edits].textContent = '⏳ تعديلاتك بانتظار موافقة المشرف'));
+      })
       .catch(() => ($('#pr-pending').textContent = '—'));
   } else $('#pr-pending').textContent = '—';
 
@@ -555,13 +649,19 @@ function profile() {
       anon.disabled = false;
     }
   };
-  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر.';
+  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر، وتأجيل اللغز جوهرة واحدة.';
 
   const list = $('#pr-puzzles');
   if (!mine.length) list.append(el('li', { className: 'empty muted', textContent: 'لم يُقبل لك لغز بعد. أضف لغزًا من صفحة "أضف لغزًا".' }));
-  mine.forEach((p) => list.append(el('li', {},
-    el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
-    el('div', { className: 'meta', textContent: `🎁 +${PUZZLE_GIFT} 💎 · ${p.addedAt || ''}` }))));
+  const editNotes = {};
+  mine.forEach((p) => {
+    editNotes[p.id] = el('div', { className: 'meta' });
+    list.append(el('li', {},
+      el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
+      el('div', { className: 'meta', textContent: `🎁 +${PUZZLE_GIFT} 💎 · ${p.addedAt || ''}` }),
+      editNotes[p.id],
+      el('div', { className: 'row' }, el('button', { type: 'button', textContent: '✏️ عدّل', onclick: () => submit(p) }))));
+  });
 
   const form = $('#name-form');
   const err = form.querySelector('.error');
@@ -630,7 +730,7 @@ async function leaderboardView() {
     board.append(el('li', { className: r.username === me.username ? 'me' : '' },
       el('span', { className: 'rank', textContent: medal }),
       el('span', { className: 'who', textContent: name }),
-      el('span', { className: 'stats', textContent: `✅ ${r.solved} · 💎 ${r.jewels}` })));
+      el('span', { className: 'stats', textContent: `✅ ${r.solved} · 💎 ${r.jewels} · 🧩 ${r.live}` })));
   });
 }
 

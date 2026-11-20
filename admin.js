@@ -98,6 +98,61 @@ async function updateRepoJson(name, change, message, key = getKey()) {
   throw new Error('Saving failed. Please try again.');
 }
 
+// ---------- adding and changing puzzles ----------
+
+async function uploadPicture(buf, path, what, id) {
+  const res = await putFile(path, new Uint8Array(buf), `Add ${what} for ${id}`);
+  if (!res.ok) throw new Error(`Could not upload the ${what} (${res.status}).`);
+  return path;
+}
+
+// Adds a new puzzle to puzzles.json, or changes one when p.edits names it.
+// answers: plain answers (empty keeps the current ones when editing).
+// pics.q / pics.a: { bytes: Promise<ArrayBuffer>, ext } to set, null to remove,
+// undefined to keep what's there.
+async function savePuzzle(p, answers, pics) {
+  const editing = p.edits || null;
+  const id = editing || (/^p-[\w-]+$/.test(p.id || '') ? p.id : 'p-' + Date.now().toString(36));
+  // A changed picture gets a new name so phones don't keep showing the old one.
+  const stamp = editing ? '-' + Date.now().toString(36) : '';
+  const put = async (pic, name, what) => (pic ? uploadPicture(await pic.bytes, `images/${name}.${pic.ext}`, what, id) : pic);
+  const image = await put(pics.q, `${id}${stamp}`, 'question picture');
+  const answerImage = await put(pics.a, `${id}-answer${stamp}`, 'answer picture');
+  const answerHashes = answers.length ? await Promise.all(answers.map((x) => hashAnswer(id, x))) : null;
+  if (!editing && !answerHashes) throw new Error('This puzzle has no answer.');
+  const fields = {
+    question: String(p.question).slice(0, 1000),
+    type: p.type === 'choice' ? 'choice' : 'text',
+    options: p.type === 'choice' ? (p.options || []).slice(0, 6) : [],
+    hints: puzzleHints(p).slice(0, MAX_HINTS).map((h) => ({ text: String(h.text).slice(0, 300), size: h.size === 'small' ? 'small' : 'big' })),
+  };
+  await updateRepoJson('puzzles', (all) => {
+    if (editing) {
+      const x = all.find((y) => y.id === id);
+      if (!x) throw new Error('That puzzle is no longer in the game.');
+      Object.assign(x, fields);
+      delete x.hint;
+      if (answerHashes) x.answerHashes = answerHashes;
+      if (image !== undefined) x.image = image;
+      if (answerImage !== undefined) x.answerImage = answerImage;
+      x.editedAt = new Date().toISOString().slice(0, 10);
+      return;
+    }
+    if (all.some((x) => x.id === id)) return;
+    all.push({
+      id,
+      ...fields,
+      answerHashes,
+      image: image || null,
+      answerImage: answerImage || null,
+      author: String(p.author || 'Someone').slice(0, 40),
+      ...(p.by ? { by: String(p.by).slice(0, 20) } : {}),
+      addedAt: new Date().toISOString().slice(0, 10),
+    });
+  }, editing ? `Edit puzzle ${id}` : `Add puzzle ${id} by ${p.by || p.author}`);
+  return id;
+}
+
 // ---------- admin screens ----------
 
 function adminView(app) {
@@ -142,6 +197,7 @@ function adminView(app) {
   };
 
   let lastCfg = null;
+  let lastPuzzles = [];
 
   async function refresh() {
     try {
@@ -150,6 +206,7 @@ function adminView(app) {
       ]);
       const cfg = savesConfig(settings);
       lastCfg = cfg;
+      lastPuzzles = puzzles;
       const saves = cfg ? await readSaves(cfg).then((r) => r.data).catch(() => null) : null;
       renderUsers(users, saves, puzzles);
       renderPuzzles(puzzles, users, saves);
@@ -222,7 +279,7 @@ function adminView(app) {
         p.answerImage ? el('img', { src: p.answerImage, alt: '' }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
         el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
-        el('div', { className: 'row' }, del)));
+        el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del)));
     });
   }
 
@@ -359,15 +416,12 @@ function adminView(app) {
     return ext;
   }
 
-  async function uploadPicture(buf, path, what, id) {
-    const res = await putFile(path, new Uint8Array(buf), `Add ${what} for ${id}`);
-    if (!res.ok) throw new Error(`Could not upload the ${what} (${res.status}).`);
-    return path;
-  }
 
   // A puzzle waiting for approval: from the pending list (or an old puzzle code).
   function puzzleCard(p, fromPending) {
     const cfg = lastCfg || savesConfig(settings);
+    const current = p.edits ? lastPuzzles.find((x) => x.id === p.edits) : null;
+    const remove = p.remove || {};
     const images = p.images && typeof p.images === 'object' ? p.images : {};
     const pendingPaths = Object.values(images).filter((x) => typeof x === 'string' && /^pending\/[\w.-]+$/.test(x));
     const hints = puzzleHints(p).slice(0, MAX_HINTS);
@@ -378,7 +432,13 @@ function adminView(app) {
     for (const [key, pic] of [['q', q], ['a', a]]) {
       const path = images[key];
       if (!pendingPaths.includes(path)) {
-        pic.note.textContent = 'None. You can attach one:';
+        const now = current && (key === 'q' ? current.image : current.answerImage);
+        if (now && remove[key]) pic.note.textContent = '🗑️ They asked to remove the current picture. You can attach one instead:';
+        else if (now) {
+          pic.note.textContent = 'No change: keeps the current picture (choose a file to replace it):';
+          pic.img.src = now;
+          pic.img.hidden = false;
+        } else pic.note.textContent = 'None. You can attach one:';
         continue;
       }
       pic.pendingPath = path;
@@ -400,62 +460,44 @@ function adminView(app) {
     const removePending = async () => {
       if (!cfg) return;
       await Promise.all(pendingPaths.map((x) => savesDeleteFile(cfg, x, 'Remove puzzle picture').catch(() => {})));
-      if (fromPending) await updateSaves(cfg, (all) => delete all[p.id], `Done with puzzle ${p.id}`, PENDING_FILE);
+      if (fromPending) await updateSaves(cfg, (all) => delete all[p.key || p.id], `Done with puzzle ${p.key || p.id}`, PENDING_FILE);
     };
 
-    const btn = el('button', { className: 'primary', textContent: 'Approve and add to the game' });
+    const btn = el('button', { className: 'primary', textContent: p.edits ? 'Approve the changes' : 'Approve and add to the game' });
     btn.onclick = () => doSave(btn, async () => {
-      const id = /^p-[\w-]+$/.test(p.id || '') ? p.id : 'p-' + Date.now().toString(36);
-      const pick = (pic, what) => {
+      const pick = (pic, key, what) => {
         const f = pic.input.files[0];
         if (f) return { bytes: f.arrayBuffer(), ext: checkPicture(f, what) };
         if (pic.pending) return { bytes: pic.pending.arrayBuffer(), ext: pic.pendingPath.split('.').pop() };
         if (pic.pendingPath) throw new Error(`Their ${what} hasn't loaded yet. Wait a moment, or attach one yourself.`);
+        if (p.edits) return remove[key] ? null : undefined;
         return null;
       };
-      const qp = pick(q, 'question picture');
-      const ap = pick(a, 'answer picture');
-      const image = qp ? await uploadPicture(await qp.bytes, `images/${id}.${qp.ext}`, 'question picture', id) : null;
-      const answerImage = ap ? await uploadPicture(await ap.bytes, `images/${id}-answer.${ap.ext}`, 'answer picture', id) : null;
-      const answerHashes = await Promise.all(p.answers.map((x) => hashAnswer(id, x)));
-      await updateRepoJson('puzzles', (all) => {
-        if (all.some((x) => x.id === id)) return;
-        all.push({
-          id,
-          question: String(p.question).slice(0, 1000),
-          type: p.type === 'choice' ? 'choice' : 'text',
-          options: p.type === 'choice' ? p.options.slice(0, 6) : [],
-          answerHashes,
-          hints: hints.map((h) => ({ text: String(h.text).slice(0, 300), size: h.size === 'small' ? 'small' : 'big' })),
-          image,
-          answerImage,
-          author: String(p.author || 'Someone').slice(0, 40),
-          ...(p.by ? { by: String(p.by).slice(0, 20) } : {}),
-          addedAt: new Date().toISOString().slice(0, 10),
-        });
-      }, `Add puzzle ${id} by ${p.by || p.author}`);
+      await savePuzzle(p, p.answers, { q: pick(q, 'q', 'question picture'), a: pick(a, 'a', 'answer picture') });
       await removePending();
       if (!fromPending) clearCode();
-      saved(`Puzzle added! It shows in the game in about a minute.${p.by ? ` ${p.author} gets 💎 ${PUZZLE_GIFT}.` : ''}`);
+      saved(p.edits ? 'Changes approved! They show in the game in about a minute.'
+        : `Puzzle added! It shows in the game in about a minute.${p.by ? ` ${p.author} gets 💎 ${PUZZLE_GIFT}.` : ''}`);
       refresh();
     });
 
     const reject = el('button', { className: 'bad', textContent: 'Reject' });
     reject.onclick = () => {
-      if (!confirm('Reject this puzzle? It and its pictures will be deleted.')) return;
+      if (!confirm(p.edits ? 'Reject these changes? The puzzle stays as it is.' : 'Reject this puzzle? It and its pictures will be deleted.')) return;
       doSave(reject, async () => {
         await removePending();
         if (!fromPending) clearCode();
-        saved('Puzzle rejected.');
+        saved(p.edits ? 'Changes rejected.' : 'Puzzle rejected.');
         refresh();
       });
     };
 
     return el('li', {},
-      el('div', { className: 'meta', textContent: `Puzzle from ${p.author}${p.by ? ' (@' + p.by + ')' : ''}${p.submittedAt ? ' · ' + p.submittedAt.slice(0, 10) : ''}` }),
+      el('div', { className: 'meta', textContent: `${p.edits ? '✏️ Changes to a puzzle' : 'Puzzle'} from ${p.author}${p.by ? ' (@' + p.by + ')' : ''}${p.submittedAt ? ' · ' + p.submittedAt.slice(0, 10) : ''}` }),
+      p.edits ? el('div', { className: 'meta', textContent: current ? `Now: ${current.question}` : '⚠️ That puzzle is no longer in the game.', dir: 'auto' }) : null,
       el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
-      el('div', { className: 'meta', textContent: (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
+      el('div', { className: 'meta', textContent: !p.answers.length ? 'Answers: no change' : (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
       ...hints.map((h, i) => el('div', { className: 'meta', textContent: `Hint ${i + 1} (${h.size === 'small' ? 'small, 2 💎' : 'big, 4 💎'}): ${h.text}` })),
       el('h3', { textContent: 'Question picture' }), q.note, q.input, q.img,
       el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note, a.input, a.img,
@@ -465,13 +507,13 @@ function adminView(app) {
   function renderPending(pending) {
     const list = $('#a-pending');
     list.replaceChildren();
-    const items = Object.values(pending || {}).sort((x, y) => String(x.submittedAt).localeCompare(String(y.submittedAt)));
+    const items = Object.entries(pending || {}).map(([key, x]) => ({ ...x, key })).sort((x, y) => String(x.submittedAt).localeCompare(String(y.submittedAt)));
     $('#pending-count').textContent = items.length || '';
     if (!pending) list.append(el('li', { className: 'empty', textContent: 'Set up saving progress (below) so players can send puzzles.' }));
     else if (!items.length) list.append(el('li', { className: 'empty', textContent: 'No puzzles waiting. 🎉' }));
     items.forEach((p) => {
       let answers = [];
-      try { answers = JSON.parse(revealKey(p.answersHidden)); } catch {}
+      try { if (p.answersHidden) answers = JSON.parse(revealKey(p.answersHidden)); } catch {}
       list.append(puzzleCard({ ...p, answers }, true));
     });
   }

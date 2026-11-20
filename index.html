@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <header class="top">
@@ -76,6 +76,7 @@
           <img id="p-answer-image" alt="صورة الإجابة" hidden>
           <div class="row">
             <button type="submit" class="primary" id="p-submit">تحقق من الإجابة</button>
+            <button type="button" id="p-postpone">⏭️ أجّل (١ 💎)</button>
             <button type="button" id="p-skip" class="link">تخطَّ</button>
           </div>
           <div id="p-hints" class="hints"></div>
@@ -95,8 +96,8 @@
 
   <template id="t-submit">
     <section class="card">
-      <h2>أضف لغزًا</h2>
-      <p class="muted small">أرسل لغزك، وسيظهر في اللعبة بعد موافقة المشرف. تحصل على جوهرة هدية لكل لغز يُقبل.</p>
+      <h2 id="s-title">أضف لغزًا</h2>
+      <p class="muted small" id="s-intro">أرسل لغزك، وسيظهر في اللعبة بعد موافقة المشرف. تحصل على جوهرة هدية لكل لغز يُقبل.</p>
       <form id="submit-form">
         <label>السؤال <textarea name="question" rows="3" required maxlength="1000"></textarea></label>
         <fieldset>
@@ -165,7 +166,7 @@
   <template id="t-leaderboard">
     <section class="card narrow">
       <h2>🏆 المتصدرون</h2>
-      <p class="muted small">الترتيب حسب عدد الألغاز المحلولة، ثم الجواهر.</p>
+      <p class="muted small">الترتيب حسب عدد الألغاز المحلولة، ثم الجواهر. ✅ ألغاز محلولة · 💎 جواهر · 🧩 ألغاز له في اللعبة</p>
       <ol class="board" id="board"><li class="muted">جارٍ التحميل…</li></ol>
       <p class="muted small">تريد إخفاء اسمك؟ من <a href="#profile">ملفي</a>.</p>
     </section>
@@ -212,13 +213,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 11</p>
+      <p class="muted small">Site version 12</p>
     </section>
   </template>
 
-  <script src="common.js?v=11"></script>
-  <script src="saves.js?v=11"></script>
-  <script src="admin.js?v=11"></script>
-  <script src="app.js?v=11"></script>
+  <script src="common.js?v=12"></script>
+  <script src="saves.js?v=12"></script>
+  <script src="admin.js?v=12"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

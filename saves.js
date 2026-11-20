@@ -144,6 +144,7 @@ function puzzlesBy(username, puzzles, users) {
 const MAX_HINTS = 4;
 const HINT_COSTS = { small: 2, big: 4 };
 const OLD_HINT_COST = 5;
+const POSTPONE_COST = 1;
 
 function puzzleHints(p) {
   if (Array.isArray(p.hints)) return p.hints.filter((h) => h && h.text);
@@ -167,7 +168,7 @@ function hintSpent(hinted) {
 }
 
 function savedJewels(entry, gifts = 0) {
-  return (entry ? (entry.solved || []).length * 2 - hintSpent(entry.hinted) : 0) + gifts * PUZZLE_GIFT;
+  return (entry ? (entry.solved || []).length * 2 - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST : 0) + gifts * PUZZLE_GIFT;
 }
 
 // ---------- leaderboard ----------
@@ -184,6 +185,7 @@ function leaderboard(users, puzzles, saves) {
         name: displayNameOf(u.username, users, saves),
         anonymous: !!entry.anonymous,
         solved: (entry.solved || []).filter((id) => live.has(id)).length,
+        live: puzzlesBy(u.username, puzzles, users).length,
         jewels: savedJewels(entry, puzzlesBy(u.username, puzzles, users).length),
       };
     })
