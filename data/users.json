@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "username": "saud",
+    "displayName": "سعود",
+    "salt": "160bcd031dc2b5691a16cac73744c699",
+    "hash": "b9826bb65808f9d8ab091235de4afb5192ef92cb8a636de41bdb82c316a435cc",
+    "status": "active",
+    "admin": true,
+    "joinedAt": "2026-11-20"
+  }
+]
