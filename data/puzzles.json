@@ -22,11 +22,21 @@
       "7bfa7c7a855a42fb935e382c5bac27ea4420cd68fedcddd29c7a3e54a826e7c3",
       "613a405e670cbadeae2a60d0cdbb6aac0beae7d2b73c28a8f83396f5d1cc4809"
     ],
-    "hint": "",
     "image": "images/p-mwpdpl6p.jpg",
     "answerImage": "images/p-mwpdpl6p-answer.jpg",
     "author": "سعود٢",
-    "addedAt": "2026-11-20"
+    "addedAt": "2026-11-20",
+    "hints": [
+      {
+        "text": "اول حرف ن",
+        "size": "small"
+      },
+      {
+        "text": "من ثلاثة حروف",
+        "size": "big"
+      }
+    ],
+    "editedAt": "2026-11-20"
   },
   {
     "id": "p-mwpevcfx",
