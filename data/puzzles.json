@@ -76,6 +76,28 @@
     "addedAt": "2026-11-20"
   },
   {
+    "id": "p-mwqp8rur2ddd",
+    "question": "رتب الصورة",
+    "type": "photo",
+    "options": [],
+    "hints": [],
+    "grid": 2,
+    "scramble": [
+      1,
+      2,
+      3,
+      0
+    ],
+    "answerHashes": [
+      "8f12967c61146ba560367f0fd026c7c4ad8787e76377e032b52988f2ce9d66af"
+    ],
+    "image": "images/p-mwqp8rur2ddd.jpg",
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-21"
+  },
+  {
     "id": "p-mwpjnkp81149",
     "question": "حلقطه ملقطه بين الاثافي ساقطة",
     "type": "choice",
@@ -250,28 +272,6 @@
     "answerImage": null,
     "author": "ماما صالحة",
     "by": "saliha",
-    "addedAt": "2026-11-21"
-  },
-  {
-    "id": "p-mwqp8rur2ddd",
-    "question": "رتب الصورة",
-    "type": "photo",
-    "options": [],
-    "hints": [],
-    "grid": 2,
-    "scramble": [
-      1,
-      2,
-      3,
-      0
-    ],
-    "answerHashes": [
-      "8f12967c61146ba560367f0fd026c7c4ad8787e76377e032b52988f2ce9d66af"
-    ],
-    "image": "images/p-mwqp8rur2ddd.jpg",
-    "answerImage": null,
-    "author": "سعود",
-    "by": "saud",
     "addedAt": "2026-11-21"
   }
 ]
