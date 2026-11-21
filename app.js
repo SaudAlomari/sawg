@@ -153,6 +153,7 @@ function authView() {
     app.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === m));
     app.querySelectorAll('.signup-only').forEach((x) => (x.hidden = m !== 'signup' || firstRun));
     app.querySelectorAll('.signup-name').forEach((x) => (x.hidden = m !== 'signup'));
+    form.password2.required = m === 'signup';
     app.querySelectorAll('.first-only').forEach((x) => (x.hidden = m !== 'signup' || !firstRun));
     form.token.required = m === 'signup' && firstRun;
     submitBtn.textContent = m === 'signup' ? (firstRun ? 'Create admin account' : 'إنشاء الحساب') : 'تسجيل الدخول';
@@ -184,6 +185,7 @@ function authView() {
       } else {
         if (!/^[a-z0-9_.-]{3,20}$/.test(username)) return showMsg(err, 'اسم المستخدم من ٣ إلى ٢٠ حرفًا إنجليزيًا أو أرقامًا (يُسمح بـ . و - و _).');
         if (password.length < 6) return showMsg(err, 'كلمة المرور يجب أن تكون ٦ أحرف على الأقل.');
+        if (password !== form.password2.value) return showMsg(err, 'كلمتا المرور غير متطابقتين.');
         if (users.some((u) => u.username === username)) return showMsg(err, 'اسم المستخدم هذا مستخدم من قبل.');
         const salt = randomHex(16);
         if (firstRun) return await createAdmin(username, password, salt, err);
@@ -192,7 +194,7 @@ function authView() {
         if (!cfg) return showMsg(err, 'التسجيل غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
         const entry = {
           username,
-          displayName: form.displayName.value.trim().slice(0, 40) || username,
+          displayName: username, // they can change it in their profile
           salt,
           hash: await hashPassword(password, salt), // never the password itself
           requestedAt: new Date().toISOString(),
@@ -226,7 +228,7 @@ async function createAdmin(username, password, salt, err) {
     await checkKey(key);
     const user = {
       username,
-      displayName: form.displayName.value.trim().slice(0, 40) || username,
+      displayName: username, // they can change it in their profile
       salt,
       hash: await hashPassword(password, salt),
       status: 'active',
