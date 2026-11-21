@@ -168,9 +168,10 @@ function hintSpent(hinted) {
   }, 0);
 }
 
-// What solving a puzzle earns: 2, but 1 less for each wrong multiple-choice try.
+// What solving a puzzle earns: 2, but 1 less for each wrong multiple-choice try,
+// plus any extra (a 9-piece photo puzzle gives 1 more).
 function solveReward(entry, id) {
-  return Math.max(0, 2 - ((entry.misses || {})[id] || 0));
+  return Math.max(0, 2 - ((entry.misses || {})[id] || 0)) + ((entry.extra || {})[id] || 0);
 }
 
 function savedJewels(entry, gifts = 0) {

@@ -55,6 +55,28 @@ async function pictureSize(url) {
   }
 }
 
+// "Arrange the photo" puzzles: the photo is cut into grid×grid pieces.
+// scramble[i] is the piece shown at place i; it's solved when every piece is home.
+function photoAnswer(grid) {
+  return Array.from({ length: grid * grid }, (_, i) => i).join(',');
+}
+function makeScramble(grid) {
+  const n = grid * grid;
+  let order;
+  do {
+    order = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  } while (order.filter((t, i) => t === i).length > Math.floor(n / 3)); // most pieces out of place
+  return order;
+}
+function validScramble(s, grid) {
+  const n = grid * grid;
+  return Array.isArray(s) && s.length === n && [...s].sort((a, b) => a - b).every((v, i) => v === i) && s.some((v, i) => v !== i);
+}
+
 function toHex(buf) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

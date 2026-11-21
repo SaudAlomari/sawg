@@ -28,10 +28,11 @@ function loadProgress() {
       if (!p.postponed || typeof p.postponed !== 'object') p.postponed = {};
       p.postpones = p.postpones || 0;
       if (!p.misses || typeof p.misses !== 'object') p.misses = {};
+      if (!p.extra || typeof p.extra !== 'object') p.extra = {};
       return p;
     }
   } catch {}
-  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {} };
+  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {}, extra: {} };
 }
 
 // Jewels: +2 for each solved puzzle (multiple choice: 2 on the first try,
@@ -59,7 +60,7 @@ let pending = null;
 async function uploadProgress(p) {
   const cfg = savesConfig(settings);
   if (!cfg || !me) return;
-  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, current: p.current || null } };
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, extra: p.extra || {}, current: p.current || null } };
   if (uploading) return;
   uploading = true;
   while (pending) {
@@ -87,7 +88,7 @@ async function syncDown() {
     saves = data;
     me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
-    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, current: saved.current || null });
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, extra: saved.extra || {}, current: saved.current || null });
     else {
       const local = loadProgress();
       if (local.solved.length || local.skipped.length) await uploadProgress(local);
@@ -306,13 +307,49 @@ function play() {
   $('#p-count').textContent = `اللغز ${doneCount + 1} من ${puzzles.length}`;
   $('#p-author').textContent = 'من: ' + puzzleAuthor(p, users, saves);
   $('#p-question').textContent = p.question;
-  if (p.image) {
+  if (p.image && p.type !== 'photo') {
     $('#p-image').src = p.image;
     $('#p-image').hidden = false;
   }
 
   let chosen = null;
-  if (p.type === 'choice') {
+  let photoDone = null; // set below for photo puzzles
+  if (p.type === 'photo') {
+    // Tap a piece, then another, to swap them. Everyone starts from the same scramble.
+    const grid = p.grid === 3 ? 3 : 2;
+    const order = (validScramble(p.scramble, grid) ? p.scramble : makeScramble(grid)).slice();
+    const board = el('div', { className: 'board', dir: 'ltr' }); // pieces always read left to right, like the photo
+    board.style.gridTemplateColumns = `repeat(${grid}, 1fr)`;
+    const pic = new Image();
+    pic.onload = () => (board.style.aspectRatio = `${pic.naturalWidth} / ${pic.naturalHeight}`);
+    pic.src = p.image;
+    let picked = null;
+    const draw = () => {
+      board.replaceChildren(...order.map((t, i) => {
+        const tile = el('button', { type: 'button', className: 'tile' + (picked === i ? ' picked' : ''), title: `${i + 1}` });
+        tile.style.backgroundImage = `url("${p.image}")`;
+        tile.style.backgroundSize = `${grid * 100}% ${grid * 100}%`;
+        tile.style.backgroundPosition = `${((t % grid) * 100) / (grid - 1)}% ${(Math.floor(t / grid) * 100) / (grid - 1)}%`;
+        tile.onclick = () => {
+          if (solvedNow) return;
+          if (picked === null) picked = i;
+          else {
+            [order[picked], order[i]] = [order[i], order[picked]];
+            picked = null;
+            if (order.every((x, k) => x === k)) {
+              board.classList.add('whole'); // close the gaps to show the full photo
+              photoDone(order.join(','));
+            }
+          }
+          draw();
+        };
+        return tile;
+      }));
+    };
+    draw();
+    $('#p-options').before(el('p', { className: 'muted small', textContent: `اضغط على قطعتين لتبديل مكانهما حتى تكتمل الصورة. المكافأة: ${grid === 3 ? 3 : 2} 💎` }), board);
+    $('#p-submit').hidden = true;
+  } else if (p.type === 'choice') {
     const note = el('p', { className: 'muted small', textContent: 'من أول محاولة: ٢ 💎 · من الثانية: ١ 💎 · بعدها: ٠' });
     $('#p-options').before(note);
     p.options.forEach((opt) => {
@@ -372,9 +409,7 @@ function play() {
     $('#p-next').focus();
   };
 
-  $('#answer-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const answer = p.type === 'choice' ? chosen : $('#p-text').value;
+  const check = async (answer) => {
     if (!answer || !answer.trim()) return;
     const correct = p.answerHashes.includes(await hashAnswer(p.id, answer));
     fb.hidden = false;
@@ -394,6 +429,7 @@ function play() {
       fb.textContent += left ? ` إذا أصبت الآن تحصل على ${left} 💎.` : ' لن تحصل على جواهر لهذا اللغز، لكن تستطيع حله.';
     }
     if (correct) {
+      if (p.type === 'photo' && p.grid === 3) progress.extra[p.id] = 1; // 9 pieces: 3 jewels
       progress.solved.push(p.id);
       saveProgress(progress);
       showJewels();
@@ -404,6 +440,11 @@ function play() {
       }
       finish();
     }
+  };
+  photoDone = check;
+  $('#answer-form').onsubmit = (e) => {
+    e.preventDefault();
+    if (p.type !== 'photo') check(p.type === 'choice' ? chosen : $('#p-text').value);
   };
 
   // Postpone: costs 1 jewel, the puzzle comes back after 3 more puzzles.
@@ -443,7 +484,14 @@ function submit(edit) {
   const form = $('#submit-form');
   const err = form.querySelector('.error');
   const direct = me.admin && !!getKey();
-  const setType = () => ($('#s-options').hidden = form.type.value !== 'choice');
+  const setType = () => {
+    const t = form.type.value;
+    $('#s-options').hidden = t !== 'choice';
+    $('#s-photo').hidden = t !== 'photo';
+    $('#s-answers').hidden = t === 'photo';
+    form.answers.required = t !== 'photo' && !edit;
+    form.question.required = t !== 'photo';
+  };
   form.querySelectorAll('[name=type]').forEach((r) => (r.onchange = setType));
 
   // Up to 5 alternative answers, each in its own box.
@@ -518,7 +566,8 @@ function submit(edit) {
     $('#s-title').textContent = '✏️ عدّل اللغز';
     $('#s-intro').textContent = direct ? 'تُحفظ التعديلات في اللعبة مباشرة.' : 'تُرسل تعديلاتك إلى المشرف، ويبقى اللغز كما هو حتى يوافق عليها.';
     form.question.value = edit.question;
-    form.type.value = edit.type === 'choice' ? 'choice' : 'text';
+    form.type.value = ['choice', 'photo'].includes(edit.type) ? edit.type : 'text';
+    form.grid.value = edit.grid === 3 ? '3' : '2';
     form.querySelectorAll('[name=opt]').forEach((x, i) => (x.value = (edit.options || [])[i] || ''));
     form.answers.required = false;
     form.answers.placeholder = 'اتركها فارغة لإبقاء الإجابات الحالية';
@@ -539,13 +588,18 @@ function submit(edit) {
       .filter(Boolean)
       .filter((a, i, all) => all.findIndex((b) => normalize(b) === normalize(a)) === i);
     const options = type === 'choice' ? [...form.querySelectorAll('[name=opt]')].map((x) => x.value.trim()) : [];
-    if (!answers.length && !edit) return showMsg(err, 'اكتب الإجابة الصحيحة.');
+    const editType = edit ? (['choice', 'photo'].includes(edit.type) ? edit.type : 'text') : null;
+    const grid = form.grid.value === '3' ? 3 : 2;
+    if (type === 'photo') {
+      const hasPhoto = form.qImage.files[0] || (edit && edit.image && !(removeBox.q && removeBox.q.checked));
+      if (!hasPhoto) return showMsg(err, 'ارفع صورة السؤال لتُقطّع وتُخلط.');
+    } else if (!answers.length && !edit) return showMsg(err, 'اكتب الإجابة الصحيحة.');
     if (type === 'choice') {
       if (options.some((o) => !o)) return showMsg(err, 'الاختيار من متعدد يحتاج ٤ خيارات. اكتبها كلها.');
       if (new Set(options.map(normalize)).size < 4) return showMsg(err, 'الخيارات الأربعة يجب أن تكون مختلفة.');
       if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
     }
-    if (edit && !answers.length && type !== (edit.type === 'choice' ? 'choice' : 'text')) {
+    if (edit && type !== 'photo' && !answers.length && type !== editType) {
       return showMsg(err, 'غيّرت نوع الإجابة، فاكتب الإجابة الصحيحة من جديد.');
     }
     const hints = [...hintsBox.querySelectorAll('.hint-row')]
@@ -555,10 +609,13 @@ function submit(edit) {
     if (!direct && !cfg) return showMsg(err, 'إرسال الألغاز غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
     const files = { q: form.qImage.files[0], a: form.aImage.files[0] };
     const removed = { q: !!(removeBox.q && removeBox.q.checked), a: !!(removeBox.a && removeBox.a.checked) };
+    // Keep the same scramble unless the photo or the number of pieces changed.
+    const keepScramble = edit && editType === 'photo' && edit.grid === grid && !files.q && validScramble(edit.scramble, grid);
     const entry = {
-      question: form.question.value.trim().slice(0, 1000),
+      question: form.question.value.trim().slice(0, 1000) || (type === 'photo' ? 'رتّب أجزاء الصورة' : ''),
       type,
       options,
+      ...(type === 'photo' ? { grid, scramble: keepScramble ? edit.scramble : makeScramble(grid) } : {}),
       hints,
       author: me.displayName,
       by: me.username,
