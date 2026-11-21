@@ -59,7 +59,7 @@ let pending = null;
 async function uploadProgress(p) {
   const cfg = savesConfig(settings);
   if (!cfg || !me) return;
-  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {} } };
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, current: p.current || null } };
   if (uploading) return;
   uploading = true;
   while (pending) {
@@ -87,7 +87,7 @@ async function syncDown() {
     saves = data;
     me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
-    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {} });
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, current: saved.current || null });
     else {
       const local = loadProgress();
       if (local.solved.length || local.skipped.length) await uploadProgress(local);
@@ -270,9 +270,20 @@ function play() {
   // A postponed puzzle waits until 3 more puzzles are done (or nothing else is left).
   const left = puzzles.filter((x) => !done.has(x.id));
   const waiting = (x) => (progress.postponed[x.id] || 0) > doneCount;
-  const p = left.find((x) => !waiting(x)) || [...left].sort((x, y) => progress.postponed[x.id] - progress.postponed[y.id])[0];
+  // Stay on the puzzle you were on, even if the admin changed the order;
+  // after it, the next is the first unsolved puzzle in the current order.
+  const current = left.find((x) => x.id === progress.current && !waiting(x));
+  const p = current || left.find((x) => !waiting(x)) || [...left].sort((x, y) => progress.postponed[x.id] - progress.postponed[y.id])[0];
+  if (p && progress.current !== p.id) {
+    progress.current = p.id;
+    saveProgress(progress); // saved to the account too, so other devices stay on it
+  }
 
-  $('#p-bar').style.width = puzzles.length ? (doneCount / puzzles.length) * 100 + '%' : '0';
+  // One dot per puzzle: green solved, amber skipped, grey not yet.
+  $('#p-dots').replaceChildren(...puzzles.map((x, i) => el('span', {
+    className: 'dot' + (progress.solved.includes(x.id) ? ' solved' : progress.skipped.includes(x.id) ? ' skipped' : '') + (p && x.id === p.id ? ' now' : ''),
+    title: `${i + 1}`,
+  })));
   const showJewels = () => ($('#p-jewels').textContent = `💎 ${jewels(progress)}`);
   showJewels();
   setSaveNote('ok');
