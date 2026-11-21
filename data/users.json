@@ -31,5 +31,13 @@
     "hash": "1b73aadf63582a091e8517076c6f3c690f11af5510110da2383f6ab77d8ae8f0",
     "status": "active",
     "joinedAt": "2026-11-20"
+  },
+  {
+    "username": "azzah",
+    "displayName": "أم عز",
+    "salt": "684f59c828c7989487ca86a4da8498f3",
+    "hash": "3f1a5c5779eefa228a1ea9e46a82062de72d54de7e59db81e30c802474aea57d",
+    "status": "active",
+    "joinedAt": "2026-11-21"
   }
 ]
