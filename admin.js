@@ -132,13 +132,19 @@ async function savePuzzle(p, answers, pics) {
   const put = async (pic, name, what) => (pic ? uploadPicture(await pic.bytes, `images/${name}.${pic.ext}`, what, id) : pic);
   const image = await put(pics.q, `${id}${stamp}`, 'question picture');
   const answerImage = await put(pics.a, `${id}-answer${stamp}`, 'answer picture');
+  const photo = p.type === 'photo';
+  const grid = p.grid === 3 ? 3 : 2;
+  if (photo && (editing ? image === null : !image)) throw new Error('An "arrange the photo" puzzle needs a question picture.');
+  // For a photo puzzle the answer is the pieces in order.
+  if (photo) answers = [photoAnswer(grid)];
   const answerHashes = answers.length ? await Promise.all(answers.map((x) => hashAnswer(id, x))) : null;
   if (!editing && !answerHashes) throw new Error('This puzzle has no answer.');
   const fields = {
     question: String(p.question).slice(0, 1000),
-    type: p.type === 'choice' ? 'choice' : 'text',
+    type: photo ? 'photo' : p.type === 'choice' ? 'choice' : 'text',
     options: p.type === 'choice' ? (p.options || []).slice(0, 6) : [],
     hints: puzzleHints(p).slice(0, MAX_HINTS).map((h) => ({ text: String(h.text).slice(0, 300), size: h.size === 'small' ? 'small' : 'big' })),
+    ...(photo ? { grid, scramble: validScramble(p.scramble, grid) ? p.scramble : makeScramble(grid) } : {}),
   };
   await updateRepoJson('puzzles', (all) => {
     if (editing) {
@@ -146,6 +152,10 @@ async function savePuzzle(p, answers, pics) {
       if (!x) throw new Error('That puzzle is no longer in the game.');
       Object.assign(x, fields);
       delete x.hint;
+      if (!photo) {
+        delete x.grid;
+        delete x.scramble;
+      }
       if (answerHashes) x.answerHashes = answerHashes;
       if (image !== undefined) x.image = image;
       if (answerImage !== undefined) x.answerImage = answerImage;
@@ -337,6 +347,7 @@ function adminView(app) {
         p.answerImage ? el('img', { src: p.answerImage, alt: '' }) : null,
         p.answerImage ? el('div', { className: 'size', textContent: `Answer picture · ${formatSize(imgs[p.answerImage])}` }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
+      p.type === 'photo' ? el('div', { className: 'meta', textContent: `🧩 Arrange the photo · ${(p.grid === 3 ? 9 : 4)} pieces` }) : null,
         el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
         el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del),
         moveControls(p, n, puzzles.length)));
@@ -570,7 +581,8 @@ function adminView(app) {
       p.edits ? el('div', { className: 'meta', textContent: current ? `Now: ${current.question}` : '⚠️ That puzzle is no longer in the game.', dir: 'auto' }) : null,
       el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
-      el('div', { className: 'meta', textContent: !p.answers.length ? 'Answers: no change' : (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
+      p.type === 'photo' ? el('div', { className: 'meta', textContent: `🧩 Arrange the photo · ${(p.grid === 3 ? 9 : 4)} pieces` }) : null,
+      p.type === 'photo' ? null : el('div', { className: 'meta', textContent: !p.answers.length ? 'Answers: no change' : (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
       ...hints.map((h, i) => el('div', { className: 'meta', textContent: `Hint ${i + 1} (${h.size === 'small' ? 'small, 2 💎' : 'big, 4 💎'}): ${h.text}` })),
       el('h3', { textContent: 'Question picture' }), q.note, q.input, q.img, q.size,
       el('h3', { textContent: 'Answer picture (shown after a correct answer)' }), a.note, a.input, a.img, a.size,

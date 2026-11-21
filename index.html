@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
   <header class="top">
@@ -104,6 +104,7 @@
           <legend>نوع الإجابة</legend>
           <label class="inline"><input type="radio" name="type" value="text" checked> إجابة مكتوبة</label>
           <label class="inline"><input type="radio" name="type" value="choice"> اختيار من متعدد</label>
+          <label class="inline"><input type="radio" name="type" value="photo"> رتّب الصورة</label>
         </fieldset>
         <div id="s-options" hidden>
           <p class="small">الخيارات الأربعة (كلها مطلوبة):</p>
@@ -113,10 +114,17 @@
           <input name="opt" placeholder="الخيار ٤" maxlength="200">
           <p class="muted small">اكتب في "الإجابة الصحيحة" الخيار الصحيح كما هو. اللاعب يحصل على ٢ 💎 إذا أصاب من أول محاولة، و١ 💎 من الثانية.</p>
         </div>
-        <label>الإجابة الصحيحة <input name="answers" required placeholder="مثال: الرياض"></label>
-        <div id="s-alts"></div>
-        <button type="button" id="s-add-alt">➕ أضف إجابة بديلة</button>
-        <p class="muted small">الإجابات البديلة تُقبل أيضًا (حتى ٥)، مثال: <b>كيبورد</b> و<b>لوحة المفاتيح</b>.<br>لا يهم الفرق بين (أ) و(ا)، ولا بين (ة) و(ه).</p>
+        <div id="s-photo" hidden>
+          <p class="small">ارفع صورة السؤال بالأسفل، وستُقطّع وتُخلط بنفس الترتيب لكل اللاعبين.</p>
+          <label class="inline"><input type="radio" name="grid" value="2" checked> سهل: ٤ أجزاء (٢ 💎)</label>
+          <label class="inline"><input type="radio" name="grid" value="3"> صعب: ٩ أجزاء (٣ 💎)</label>
+        </div>
+        <div id="s-answers">
+          <label>الإجابة الصحيحة <input name="answers" required placeholder="مثال: الرياض"></label>
+          <div id="s-alts"></div>
+          <button type="button" id="s-add-alt">➕ أضف إجابة بديلة</button>
+          <p class="muted small">الإجابات البديلة تُقبل أيضًا (حتى ٥)، مثال: <b>كيبورد</b> و<b>لوحة المفاتيح</b>.<br>لا يهم الفرق بين (أ) و(ا)، ولا بين (ة) و(ه).</p>
+        </div>
         <fieldset>
           <legend>التلميحات (اختياري، حتى ٤)</legend>
           <p class="muted small">التلميح الصغير يكلّف اللاعب جوهرتين، والكبير ٤ جواهر.</p>
@@ -218,13 +226,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 16</p>
+      <p class="muted small">Site version 17</p>
     </section>
   </template>
 
-  <script src="common.js?v=16"></script>
-  <script src="saves.js?v=16"></script>
-  <script src="admin.js?v=16"></script>
-  <script src="app.js?v=16"></script>
+  <script src="common.js?v=17"></script>
+  <script src="saves.js?v=17"></script>
+  <script src="admin.js?v=17"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
