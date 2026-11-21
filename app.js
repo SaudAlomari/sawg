@@ -381,7 +381,6 @@ function play() {
     });
   } else {
     $('#p-text').hidden = false;
-    $('#p-text').focus();
   }
 
   // Hints: each costs jewels (small 2, big 4) and stays open once bought.
