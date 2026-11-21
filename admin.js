@@ -338,8 +338,32 @@ function adminView(app) {
         p.answerImage ? el('div', { className: 'size', textContent: `Answer picture · ${formatSize(imgs[p.answerImage])}` }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
         el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
-        el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del)));
+        el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del),
+        moveControls(p, n, puzzles.length)));
     });
+  }
+
+  // Change the order of the game. Players keep their progress: solved
+  // puzzles stay solved, and they get the first unsolved one in the new order.
+  function moveControls(p, n, count) {
+    const move = (button, to) => doSave(button, async () => {
+      await updateRepoJson('puzzles', (all) => {
+        const i = all.findIndex((y) => y.id === p.id);
+        if (i < 0) throw new Error('That puzzle is no longer in the game.');
+        const [x] = all.splice(i, 1);
+        all.splice(Math.max(0, Math.min(to, all.length)), 0, x);
+      }, `Move puzzle ${p.id} to position ${to + 1}`);
+      saved(`Moved to position ${to + 1}.`);
+      refresh();
+    });
+    const up = el('button', { textContent: '↑', title: 'Move up', disabled: n === 0 });
+    up.onclick = () => move(up, n - 1);
+    const down = el('button', { textContent: '↓', title: 'Move down', disabled: n === count - 1 });
+    down.onclick = () => move(down, n + 1);
+    const pick = el('select', { title: 'Move to position' },
+      ...Array.from({ length: count }, (_, i) => el('option', { value: i, textContent: `Position ${i + 1}`, selected: i === n })));
+    pick.onchange = () => move(pick, Number(pick.value));
+    return el('div', { className: 'row move' }, up, down, pick);
   }
 
   // ----- saving progress -----
