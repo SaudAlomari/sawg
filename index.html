@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
   <header class="top">
@@ -34,8 +34,9 @@
       </div>
       <form id="auth-form">
         <label>اسم المستخدم <input name="username" autocomplete="username" autocapitalize="off" dir="ltr" required></label>
-        <label class="signup-name" hidden>الاسم الظاهر <input name="displayName" maxlength="40" placeholder="الاسم الذي يراه الآخرون"></label>
         <label>كلمة المرور <input name="password" type="password" dir="ltr" autocomplete="current-password" required minlength="6"></label>
+        <label class="signup-name" hidden>تأكيد كلمة المرور <input name="password2" type="password" dir="ltr" autocomplete="new-password" minlength="6"></label>
+        <p class="muted small signup-name" hidden>اسمك الظاهر سيكون اسم المستخدم، وتستطيع تغييره لاحقًا من ملفي.</p>
         <div class="first-only" dir="ltr" lang="en" hidden>
           <p class="hint">👑 You're the first one here, so you'll be the <b>admin</b>. To let the site save players and puzzles into your GitHub repo, paste a GitHub key once.</p>
           <label>GitHub key <input name="token" type="password" autocomplete="off" placeholder="github_pat_…"></label>
@@ -216,13 +217,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 14</p>
+      <p class="muted small">Site version 15</p>
     </section>
   </template>
 
-  <script src="common.js?v=14"></script>
-  <script src="saves.js?v=14"></script>
-  <script src="admin.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+  <script src="common.js?v=15"></script>
+  <script src="saves.js?v=15"></script>
+  <script src="admin.js?v=15"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
