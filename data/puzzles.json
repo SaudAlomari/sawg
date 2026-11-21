@@ -56,31 +56,6 @@
     "editedAt": "2026-11-20"
   },
   {
-    "id": "p-mwpj7dcnfcf3",
-    "question": "ما هذا الشيء؟",
-    "type": "text",
-    "options": [],
-    "hints": [
-      {
-        "text": "طائر",
-        "size": "big"
-      }
-    ],
-    "answerHashes": [
-      "f411354fbd9944a2faa4cf28b867a37b56c89b9ef374d25d6cae31e2f056cffe",
-      "0af4bcfb5bf2047da457d6091de0e64d53a5ba1c20e02ac2752dc6231eb86320",
-      "4ca703be83d079050ce5cce77bdac5e3526a8021762c2825fd849d270c62fa2a",
-      "795600c5904d951b062e602533b4ca56bce3212b9e85b0b3719305bbd170a9f0",
-      "dfcd598e6dd433c1f0832319813b2365d1f27d9d9a59045935cd728f43a5d2a7",
-      "92c38823fdea67b22f2c85afa54c990463e0ed1cde5d6d3c5fc34e4c92541ef9"
-    ],
-    "image": "images/p-mwpj7dcnfcf3.jpg",
-    "answerImage": "images/p-mwpj7dcnfcf3-answer.jpg",
-    "author": "سعود",
-    "by": "saud",
-    "addedAt": "2026-11-20"
-  },
-  {
     "id": "p-mwpjk4vd0a65",
     "question": "طير زبعر لا يخرى ولا يبعر",
     "type": "choice",
@@ -118,6 +93,31 @@
     "answerImage": null,
     "author": "ماما صالحة",
     "by": "saliha",
+    "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-mwpj7dcnfcf3",
+    "question": "ما هذا الشيء؟",
+    "type": "text",
+    "options": [],
+    "hints": [
+      {
+        "text": "طائر",
+        "size": "big"
+      }
+    ],
+    "answerHashes": [
+      "f411354fbd9944a2faa4cf28b867a37b56c89b9ef374d25d6cae31e2f056cffe",
+      "0af4bcfb5bf2047da457d6091de0e64d53a5ba1c20e02ac2752dc6231eb86320",
+      "4ca703be83d079050ce5cce77bdac5e3526a8021762c2825fd849d270c62fa2a",
+      "795600c5904d951b062e602533b4ca56bce3212b9e85b0b3719305bbd170a9f0",
+      "dfcd598e6dd433c1f0832319813b2365d1f27d9d9a59045935cd728f43a5d2a7",
+      "92c38823fdea67b22f2c85afa54c990463e0ed1cde5d6d3c5fc34e4c92541ef9"
+    ],
+    "image": "images/p-mwpj7dcnfcf3.jpg",
+    "answerImage": "images/p-mwpj7dcnfcf3-answer.jpg",
+    "author": "سعود",
+    "by": "saud",
     "addedAt": "2026-11-20"
   },
   {
