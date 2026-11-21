@@ -15,7 +15,7 @@ A family & friends trivia and puzzle game that runs entirely on GitHub, with no 
 3. **Play.** Puzzles are shown one at a time, page by page. Wrong answers can be retried, or players can skip.
    - **Jewels 💎:** each solved puzzle earns 2 jewels, and each of your puzzles in the game gives 1. A puzzle can have up to 4 hints; a small hint costs 2 jewels and a big one 4. A bought hint stays visible for free.
    - **Puzzles:** players send puzzles from the site; they wait under Admin → Pending (stored in `pendingPuzzles.json` in the saves repo) until approved.
-   - **Leaderboard:** ranks players by puzzles solved, then jewels. Players can show as "مجهول" (set in their profile); the admin still sees who.
+   - **Leaderboard:** ranks players by puzzles solved, then jewels. Players can show as "مجهول" (set in their profile); the admin still sees who. They can also leave the leaderboard entirely; only the admin sees who left.
 4. **Submit a puzzle.** Players fill in the puzzle form (pictures included). It waits under Admin → **Pending** until the admin approves it into `data/puzzles.json`.
 
 The admin can also deactivate or delete users and delete puzzles from the Admin page. Puzzles the admin adds or edits go into the game straight away.

@@ -337,7 +337,7 @@ function play() {
     // Tap a piece, then another, to swap them. Everyone starts from the same scramble.
     const grid = p.grid === 3 ? 3 : 2;
     const order = (validScramble(p.scramble, grid) ? p.scramble : makeScramble(grid)).slice();
-    const board = el('div', { className: 'board', dir: 'ltr' }); // pieces always read left to right, like the photo
+    const board = el('div', { className: 'photo-board', dir: 'ltr' }); // pieces always read left to right, like the photo
     board.style.gridTemplateColumns = `repeat(${grid}, 1fr)`;
     const pic = new Image();
     pic.onload = () => (board.style.aspectRatio = `${pic.naturalWidth} / ${pic.naturalHeight}`);
@@ -762,31 +762,33 @@ function profile() {
       .catch(() => ($('#pr-pending').textContent = '—'));
   } else $('#pr-pending').textContent = '—';
 
-  // Hide my name on the leaderboard.
-  const anon = $('#pr-anon');
-  const anonMsg = $('#pr-anon-msg');
-  anon.checked = !!(saves[me.username] || {}).anonymous;
-  anon.onchange = async () => {
-    const cfg = savesConfig(settings);
-    if (!cfg) {
-      anon.checked = !anon.checked;
-      return (anonMsg.textContent = 'غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
-    }
-    anon.disabled = true;
-    anonMsg.textContent = '⏳ جارٍ الحفظ…';
-    const value = anon.checked;
-    try {
-      saves = await updateSaves(cfg, (all) => {
-        all[me.username] = { ...all[me.username], anonymous: value };
-      }, `Leaderboard: ${me.username}`);
-      anonMsg.textContent = value ? 'تم ✓ تظهر في لوحة المتصدرين باسم "مجهول".' : 'تم ✓ يظهر اسمك في لوحة المتصدرين.';
-    } catch {
-      anon.checked = !value;
-      anonMsg.textContent = 'تعذّر الحفظ. تحقق من الإنترنت وحاول مرة أخرى.';
-    } finally {
-      anon.disabled = false;
-    }
+  // Leaderboard choices: show as "مجهول", or leave the leaderboard entirely.
+  const choice = (box, msg, field, yes, no) => {
+    box.checked = !!(saves[me.username] || {})[field];
+    box.onchange = async () => {
+      const cfg = savesConfig(settings);
+      if (!cfg) {
+        box.checked = !box.checked;
+        return (msg.textContent = 'غير متاح بعد. اطلب من المشرف تفعيل الحفظ.');
+      }
+      box.disabled = true;
+      msg.textContent = '⏳ جارٍ الحفظ…';
+      const value = box.checked;
+      try {
+        saves = await updateSaves(cfg, (all) => {
+          all[me.username] = { ...all[me.username], [field]: value };
+        }, `Leaderboard: ${me.username}`);
+        msg.textContent = value ? yes : no;
+      } catch {
+        box.checked = !value;
+        msg.textContent = 'تعذّر الحفظ. تحقق من الإنترنت وحاول مرة أخرى.';
+      } finally {
+        box.disabled = false;
+      }
+    };
   };
+  choice($('#pr-anon'), $('#pr-anon-msg'), 'anonymous', 'تم ✓ تظهر في لوحة المتصدرين باسم "مجهول".', 'تم ✓ يظهر اسمك في لوحة المتصدرين.');
+  choice($('#pr-hide'), $('#pr-hide-msg'), 'hideFromBoard', 'تم ✓ لن تظهر في لوحة المتصدرين.', 'تم ✓ عدت إلى لوحة المتصدرين.');
   $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر، وتأجيل اللغز جوهرة واحدة.';
 
   const list = $('#pr-puzzles');
@@ -854,7 +856,9 @@ async function leaderboardView() {
   if (location.hash !== '#leaderboard') return; // they moved on while it loaded
   // My own progress on this device is the freshest.
   const mineNow = { ...saves, [me.username]: { ...saves[me.username], ...loadProgress() } };
-  const rows = leaderboard(users, puzzles, mineNow);
+  const all = leaderboard(users, puzzles, mineNow);
+  // Players who left the leaderboard don't show or take a rank.
+  const rows = all.filter((r) => !r.hidden);
   board.replaceChildren();
   if (!rows.length) board.append(el('li', { className: 'muted', textContent: 'لا يوجد لاعبون بعد.' }));
   let rank = 0;
@@ -870,6 +874,11 @@ async function leaderboardView() {
       el('span', { className: 'who', textContent: name }),
       el('span', { className: 'stats', textContent: `✅ ${r.solved} · 💎 ${r.jewels} · 🧩 ${r.live}` })));
   });
+  const hidden = all.filter((r) => r.hidden);
+  const note = app.querySelector('#board-hidden');
+  if (hidden.some((r) => r.username === me.username)) note.textContent = 'أنت مخفي من لوحة المتصدرين. تستطيع الرجوع من ملفي.';
+  if (me.admin && hidden.length) note.textContent = `مخفيون من اللوحة (يراهم المشرف فقط): ${hidden.map((r) => r.name).join('، ')}`;
+  note.hidden = !note.textContent;
 }
 
 // ---------- start ----------

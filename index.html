@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
   <header class="top">
@@ -169,6 +169,8 @@
       <h2>لوحة المتصدرين</h2>
       <label class="inline"><input type="checkbox" id="pr-anon"> أخفِ اسمي، وأظهر باسم "مجهول"</label>
       <p class="muted small" id="pr-anon-msg"></p>
+      <label class="inline"><input type="checkbox" id="pr-hide"> لا تُظهرني في لوحة المتصدرين أبدًا</label>
+      <p class="muted small" id="pr-hide-msg"></p>
     </section>
     <section class="card narrow">
       <h2>ألغازي</h2>
@@ -181,7 +183,8 @@
       <h2>🏆 المتصدرون</h2>
       <p class="muted small">الترتيب حسب عدد الألغاز المحلولة، ثم الجواهر. ✅ ألغاز محلولة · 💎 جواهر · 🧩 ألغاز له في اللعبة</p>
       <ol class="board" id="board"><li class="muted">جارٍ التحميل…</li></ol>
-      <p class="muted small">تريد إخفاء اسمك؟ من <a href="#profile">ملفي</a>.</p>
+      <p class="muted small" id="board-hidden" hidden></p>
+      <p class="muted small">تريد إخفاء اسمك أو الخروج من اللوحة؟ من <a href="#profile">ملفي</a>.</p>
     </section>
   </template>
 
@@ -226,13 +229,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 19</p>
+      <p class="muted small">Site version 20</p>
     </section>
   </template>
 
-  <script src="common.js?v=19"></script>
-  <script src="saves.js?v=19"></script>
-  <script src="admin.js?v=19"></script>
-  <script src="app.js?v=19"></script>
+  <script src="common.js?v=20"></script>
+  <script src="saves.js?v=20"></script>
+  <script src="admin.js?v=20"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>
