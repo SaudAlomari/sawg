@@ -8,6 +8,7 @@ let puzzles = [];
 let me = null;
 let settings = {};
 let saves = {}; // usersSavedData.json: progress and profile names
+let adminPick = null; // the admin tapped a dot: play this puzzle next
 
 function mount(id) {
   app.replaceChildren(document.getElementById(id).content.cloneNode(true));
@@ -274,17 +275,34 @@ function play() {
   // Stay on the puzzle you were on, even if the admin changed the order;
   // after it, the next is the first unsolved puzzle in the current order.
   const current = left.find((x) => x.id === progress.current && !waiting(x));
-  const p = current || left.find((x) => !waiting(x)) || [...left].sort((x, y) => progress.postponed[x.id] - progress.postponed[y.id])[0];
-  if (p && progress.current !== p.id) {
+  // Admin only: a tapped dot opens that puzzle. One already solved or skipped
+  // is played for practice and changes nothing (no jewels, no progress).
+  const pick = me.admin && adminPick ? puzzles.find((x) => x.id === adminPick) : null;
+  adminPick = null;
+  const practice = !!pick && done.has(pick.id);
+  const p = pick || current || left.find((x) => !waiting(x)) || [...left].sort((x, y) => progress.postponed[x.id] - progress.postponed[y.id])[0];
+  if (p && !practice && progress.current !== p.id) {
     progress.current = p.id;
     saveProgress(progress); // saved to the account too, so other devices stay on it
   }
 
   // One dot per puzzle: green solved, amber skipped, grey not yet.
-  $('#p-dots').replaceChildren(...puzzles.map((x, i) => el('span', {
-    className: 'dot' + (progress.solved.includes(x.id) ? ' solved' : progress.skipped.includes(x.id) ? ' skipped' : '') + (p && x.id === p.id ? ' now' : ''),
-    title: `${i + 1}`,
-  })));
+  // The admin can tap any dot to play that puzzle.
+  $('#p-dots').replaceChildren(...puzzles.map((x, i) => {
+    const dot = el(me.admin ? 'button' : 'span', {
+      className: 'dot' + (progress.solved.includes(x.id) ? ' solved' : progress.skipped.includes(x.id) ? ' skipped' : '') + (p && x.id === p.id ? ' now' : ''),
+      title: `${i + 1}`,
+    });
+    if (me.admin) {
+      dot.type = 'button';
+      dot.setAttribute('aria-label', `اللغز ${i + 1}`);
+      dot.onclick = () => {
+        adminPick = x.id;
+        play();
+      };
+    }
+    return dot;
+  }));
   const showJewels = () => ($('#p-jewels').textContent = `💎 ${jewels(progress)}`);
   showJewels();
   setSaveNote('ok');
@@ -304,7 +322,8 @@ function play() {
     return;
   }
 
-  $('#p-count').textContent = `اللغز ${doneCount + 1} من ${puzzles.length}`;
+  // The admin jumps around, so show where this puzzle sits in the list.
+  $('#p-count').textContent = `اللغز ${me.admin ? puzzles.indexOf(p) + 1 : doneCount + 1} من ${puzzles.length}` + (practice ? ' · تجربة بدون جواهر' : '');
   $('#p-author').textContent = 'من: ' + puzzleAuthor(p, users, saves);
   $('#p-question').textContent = p.question;
   if (p.image && p.type !== 'photo') {
@@ -373,7 +392,7 @@ function play() {
       const size = h.size === 'small' ? 'small' : 'big';
       const label = size === 'small' ? 'تلميح صغير' : 'تلميح كبير';
       const cost = HINT_COSTS[size];
-      if (hintOpened(progress.hinted, p, i)) {
+      if (practice || hintOpened(progress.hinted, p, i)) {
         hintsBox.append(el('p', { className: 'hint', textContent: `💡 ${label}: ${h.text}` }));
         return;
       }
@@ -415,7 +434,14 @@ function play() {
     fb.hidden = false;
     fb.className = 'feedback ' + (correct ? 'ok' : 'bad');
     fb.textContent = correct ? '✅ إجابة صحيحة!' : '❌ ليست صحيحة. حاول مرة أخرى!';
-    if (!correct && p.type === 'choice') {
+    if (!correct && p.type === 'choice' && practice) {
+      $('#p-options').querySelectorAll('button.selected').forEach((x) => {
+        x.disabled = true;
+        x.classList.remove('selected');
+        x.classList.add('wrong');
+      });
+      chosen = null;
+    } else if (!correct && p.type === 'choice') {
       // Each wrong choice lowers the reward; that choice can't be picked again.
       progress.misses[p.id] = (progress.misses[p.id] || 0) + 1;
       saveProgress(progress);
@@ -428,7 +454,14 @@ function play() {
       const left = solveReward(progress, p.id);
       fb.textContent += left ? ` إذا أصبت الآن تحصل على ${left} 💎.` : ' لن تحصل على جواهر لهذا اللغز، لكن تستطيع حله.';
     }
-    if (correct) {
+    if (correct && practice) {
+      fb.textContent = '✅ إجابة صحيحة! (تجربة، بدون جواهر)';
+      if (p.answerImage) {
+        $('#p-answer-image').src = p.answerImage;
+        $('#p-answer-image').hidden = false;
+      }
+      finish();
+    } else if (correct) {
       if (p.type === 'photo' && p.grid === 3) progress.extra[p.id] = 1; // 9 pieces: 3 jewels
       progress.solved.push(p.id);
       saveProgress(progress);
@@ -471,6 +504,11 @@ function play() {
     saveProgress(progress);
     play();
   };
+
+  if (practice) {
+    postpone.hidden = true;
+    $('#p-skip').hidden = true;
+  }
 
   $('#p-next').onclick = play;
 }
