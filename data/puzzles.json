@@ -273,5 +273,26 @@
     "author": "ماما صالحة",
     "by": "saliha",
     "addedAt": "2026-11-21"
+  },
+  {
+    "id": "p-mwr0sdw20c36",
+    "question": "لم يرمز هذا الشعار؟",
+    "type": "text",
+    "options": [],
+    "hints": [
+      {
+        "text": "سيارة",
+        "size": "small"
+      }
+    ],
+    "answerHashes": [
+      "719d95f9f195a92a616a40aee8a4099685fb34d8f0df326a61edbce76e7fc1fc",
+      "fcedf66072113727681f367d381584926e51ed4de7ec29319c1310b2f005bccd"
+    ],
+    "image": "images/p-mwr0sdw20c36.png",
+    "answerImage": "images/p-mwr0sdw20c36-answer.jpg",
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-21"
   }
 ]
