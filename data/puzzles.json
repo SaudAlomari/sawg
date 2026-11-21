@@ -230,5 +230,26 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-20"
+  },
+  {
+    "id": "p-mwps2rvnd79c",
+    "question": "ابي انشدك عن اثنين سرهم واحد، ومايمشون الا لا دبيت اصابعك بعيونهم",
+    "type": "text",
+    "options": [],
+    "hints": [
+      {
+        "text": "ثلاث حروف",
+        "size": "small"
+      }
+    ],
+    "answerHashes": [
+      "9586864ca1f808c30cdf4911e4ac9e3774908afd92c730b3ae9e4ff5c6fce10e",
+      "7b5883e161d34f882af2a370fbbc8fe387f9b4e74f6996e6171726384e551404"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "ماما صالحة",
+    "by": "saliha",
+    "addedAt": "2026-11-21"
   }
 ]
