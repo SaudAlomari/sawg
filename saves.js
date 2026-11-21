@@ -193,6 +193,7 @@ function leaderboard(users, puzzles, saves) {
         username: u.username,
         name: displayNameOf(u.username, users, saves),
         anonymous: !!entry.anonymous,
+        hidden: !!entry.hideFromBoard,
         solved: (entry.solved || []).filter((id) => live.has(id)).length,
         live: puzzlesBy(u.username, puzzles, users).length,
         jewels: savedJewels(entry, puzzlesBy(u.username, puzzles, users).length),
