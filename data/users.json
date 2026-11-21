@@ -39,5 +39,13 @@
     "hash": "3f1a5c5779eefa228a1ea9e46a82062de72d54de7e59db81e30c802474aea57d",
     "status": "active",
     "joinedAt": "2026-11-21"
+  },
+  {
+    "username": "moola",
+    "displayName": "Moola",
+    "salt": "bc93367c638444ec9f6d98dd24681fd3",
+    "hash": "77045a2bf05913aaa84c2c98424a33f4b6ffd93bbeb1ed9191f4602ec8848f85",
+    "status": "active",
+    "joinedAt": "2026-11-21"
   }
 ]
