@@ -124,14 +124,15 @@ async function loadJson(path) {
 }
 
 // ---------- guess-the-word puzzles ----------
-// Words are compared letter by letter after normalize() (أ إ آ = ا, ة = ه, ى = ي).
+// Words are compared letter by letter. Every letter stands for itself
+// (ه and ة, ي and ى are different); only the alef forms أ إ آ ٱ count as ا.
 
 const WORD_MIN = 3;
 const WORD_MAX = 7;
 const WORD_GUESSES = 6;
 
 function wordLetters(w) {
-  return [...normalize(w).replace(/\s/g, '')];
+  return [...String(w || '').replace(/[\u064B-\u0652\u0670\u0640\s]/g, '').replace(/[أإآٱ]/g, 'ا')];
 }
 
 // A word the dictionary can hold: Arabic letters only, 3 to 7 of them.
