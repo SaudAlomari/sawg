@@ -447,5 +447,20 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-22"
+  },
+  {
+    "id": "p-mwsdy5ry9e26",
+    "question": "ماهذا الشيء؟",
+    "type": "text",
+    "options": [],
+    "hints": [],
+    "answerHashes": [
+      "4570d22229925d75f402a8e027ba111592b1026baa6abb46eef72511fa55e7de"
+    ],
+    "image": "images/p-mwsdy5ry9e26.png",
+    "answerImage": "images/p-mwsdy5ry9e26-answer.png",
+    "author": "N30o0my",
+    "by": "nwafy",
+    "addedAt": "2026-11-22"
   }
 ]
