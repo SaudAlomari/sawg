@@ -376,5 +376,22 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-22"
+  },
+  {
+    "id": "p-mws1oc918b1a",
+    "question": "ما الشيء الذي يكون امامك دائما لكنك لا تستطيع رؤيته",
+    "type": "text",
+    "options": [],
+    "hints": [],
+    "answerHashes": [
+      "43709095f327488b2ed968df71532546ba539c11f1e72a17109fc403dda368ae",
+      "7e304bc406ae0ec68f2814c4c9b1bd5116b79f163d3df3ab57d9cde86429a6ae",
+      "cb1e979fd6b1f142904cf57adeeeb1aadc15467abbec0626c8339e5cd65f8842"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-22"
   }
 ]
