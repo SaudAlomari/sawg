@@ -509,15 +509,24 @@
     "question": "ماهذا الشيء؟",
     "type": "text",
     "options": [],
-    "hints": [],
+    "hints": [
+      {
+        "text": "هاتف",
+        "size": "small"
+      }
+    ],
     "answerHashes": [
-      "4570d22229925d75f402a8e027ba111592b1026baa6abb46eef72511fa55e7de"
+      "4570d22229925d75f402a8e027ba111592b1026baa6abb46eef72511fa55e7de",
+      "83325d06721d2c69bb2ebef6134073229aaf76ef872fdc83f4d3a99079454e10",
+      "d53028d672791d269f8129c8873bfaf05d60ba1eba6c3d5d403a5653e38c1947",
+      "259ab4dd45a3a9d7be7beb4ea49d16a9f08bf7cc4f81c0e0b9e6e6f8e456f792"
     ],
     "image": "images/p-mwsdy5ry9e26.png",
     "answerImage": "images/p-mwsdy5ry9e26-answer.png",
     "author": "N30o0my",
     "by": "nwafy",
-    "addedAt": "2026-11-22"
+    "addedAt": "2026-11-22",
+    "editedAt": "2026-11-22"
   },
   {
     "id": "p-mwsex5rhe34b",
