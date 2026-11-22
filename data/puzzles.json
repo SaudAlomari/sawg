@@ -359,5 +359,22 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-22"
+  },
+  {
+    "id": "p-mws1kfie2552",
+    "question": "ام عندها 4 بنات، ولكل بنت لها اخ واحد، كم مجموع ابناء وبنات الام",
+    "type": "text",
+    "options": [],
+    "hints": [],
+    "answerHashes": [
+      "156c6e9281b5843e32595bcdd48c502d5a1510972103e2bdc6a6df4f97ba0191",
+      "66954efd60237c42d3d4e5d6b2968c76aa43ac1e77907cda36922c0a43c5c783",
+      "a45a11e7ea19df01c6ec87099275ea0b327a1454bd9d847542c2b0e4bbfd1655"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-22"
   }
 ]
