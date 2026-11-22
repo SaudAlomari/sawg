@@ -192,8 +192,7 @@
     "options": [],
     "answerHashes": [
       "fcf7f27a8e841aa0c0a2bcce1a4bd5fa5ffc3ed8ddbe135764c7d753e270756d",
-      "7bfa7c7a855a42fb935e382c5bac27ea4420cd68fedcddd29c7a3e54a826e7c3",
-      "613a405e670cbadeae2a60d0cdbb6aac0beae7d2b73c28a8f83396f5d1cc4809"
+      "7bfa7c7a855a42fb935e382c5bac27ea4420cd68fedcddd29c7a3e54a826e7c3"
     ],
     "image": "images/p-mwpdpl6p.jpg",
     "answerImage": "images/p-mwpdpl6p-answer.jpg",
@@ -209,7 +208,7 @@
         "size": "big"
       }
     ],
-    "editedAt": "2026-11-20"
+    "editedAt": "2026-11-22"
   },
   {
     "id": "p-mwpkkea5a20f",
