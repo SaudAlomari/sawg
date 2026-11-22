@@ -602,6 +602,7 @@ function submit(edit) {
     };
   }
 
+  let missing = []; // accepted answers nobody has typed yet; kept when saving
   if (edit) {
     $('#s-title').textContent = '✏️ عدّل اللغز';
     $('#s-intro').textContent = direct ? 'تُحفظ التعديلات في اللعبة مباشرة.' : 'تُرسل تعديلاتك إلى المشرف، ويبقى اللغز كما هو حتى يوافق عليها.';
@@ -622,13 +623,17 @@ function submit(edit) {
           if (!cfg) throw new Error('no saves');
           return loadAnswers(cfg, edit, puzzles);
         })
-        .then((list) => {
+        .then((found) => {
           if (!form.isConnected) return;
+          const list = found && found.answers;
           if (!list) {
             note.textContent = 'الإجابات الحالية لهذا اللغز غير محفوظة. اتركها فارغة لإبقائها، أو اكتبها هنا لتظهر في المرات القادمة.';
             return;
           }
-          note.textContent = '';
+          missing = found.missing;
+          note.textContent = missing.length
+            ? `عُرفت ${list.length} من ${list.length + missing.length} إجابات الباقية تبقى مقبولة إذا حفظت.`
+            : '';
           if (form.answers.value || alts.children.length) return; // already typing
           form.answers.value = list[0];
           list.slice(1, MAX_ALTS + 1).forEach((a) => altRow(a));
@@ -684,6 +689,7 @@ function submit(edit) {
       author: me.displayName,
       by: me.username,
       ...(edit ? { edits: edit.id } : {}),
+      ...(edit && missing.length && answers.length && type === editType ? { keepHashes: missing } : {}),
     };
     submitBtn.disabled = true;
     try {

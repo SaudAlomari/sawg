@@ -144,7 +144,26 @@ async function recoverAnswers(cfg, puzzles) {
   return found;
 }
 
-// The current answers of a puzzle, or null when they aren't known.
+// Answers of older puzzles, worked out from their stored hashes and kept
+// (lightly scrambled) in data/answers-seed.json as { id: { hash: answer } }.
+let answerSeed = null;
+async function seedAnswers(id) {
+  if (!answerSeed) answerSeed = await loadJson('data/answers-seed.json').catch(() => ({}));
+  return (answerSeed[id] && readHidden(answerSeed[id])) || {};
+}
+
+// Answers typed in an edit while some of the old ones stay unknown.
+async function addSeenAnswers(cfg, id, answers) {
+  const hashes = await Promise.all(answers.map((a) => hashAnswer(id, a)));
+  await updateSaves(cfg, (all) => {
+    const seen = (all['seen:' + id] && readHidden(all['seen:' + id])) || {};
+    hashes.forEach((h, i) => (seen[h] = answers[i]));
+    all['seen:' + id] = hideKey(JSON.stringify(seen));
+  }, `Answers for ${id}`, ANSWERS_FILE);
+}
+
+// The current answers of a puzzle: { answers, missing } where missing lists
+// the hashes of accepted answers still unknown; null when none are known.
 async function loadAnswers(cfg, p, puzzles) {
   let { data } = await readSaves(cfg, ANSWERS_FILE);
   if (!data[p.id] && !data._searched) {
@@ -155,7 +174,13 @@ async function loadAnswers(cfg, p, puzzles) {
     }, 'Answers found in older puzzle submissions', ANSWERS_FILE);
   }
   const answers = data[p.id] && readHidden(data[p.id]);
-  return answers && (await sameAnswers(p, answers)) ? answers : null;
+  if (answers && (await sameAnswers(p, answers))) return { answers, missing: [] };
+  // Otherwise, the answers worked out for older puzzles, plus any typed in edits.
+  const seen = { ...(await seedAnswers(p.id)), ...((data['seen:' + p.id] && readHidden(data['seen:' + p.id])) || {}) };
+  const hashes = p.answerHashes || [];
+  const learned = hashes.filter((h) => typeof seen[h] === 'string').map((h) => seen[h]);
+  if (!learned.length) return null;
+  return { answers: learned, missing: hashes.filter((h) => typeof seen[h] !== 'string') };
 }
 
 // ---------- pictures players upload with their puzzles ----------

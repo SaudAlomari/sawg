@@ -137,7 +137,10 @@ async function savePuzzle(p, answers, pics) {
   if (photo && (editing ? image === null : !image)) throw new Error('An "arrange the photo" puzzle needs a question picture.');
   // For a photo puzzle the answer is the pieces in order.
   if (photo) answers = [photoAnswer(grid)];
-  const answerHashes = answers.length ? await Promise.all(answers.map((x) => hashAnswer(id, x))) : null;
+  let answerHashes = answers.length ? await Promise.all(answers.map((x) => hashAnswer(id, x))) : null;
+  // Old answers nobody has typed yet stay accepted (keepHashes, when editing).
+  const keep = editing && !photo && answerHashes && Array.isArray(p.keepHashes) ? p.keepHashes.filter((h) => /^[0-9a-f]{64}$/.test(h)) : [];
+  if (keep.length) answerHashes = [...new Set([...answerHashes, ...keep])];
   if (!editing && !answerHashes) throw new Error('This puzzle has no answer.');
   const fields = {
     question: String(p.question).slice(0, 1000),
@@ -156,7 +159,7 @@ async function savePuzzle(p, answers, pics) {
         delete x.grid;
         delete x.scramble;
       }
-      if (answerHashes) x.answerHashes = answerHashes;
+      if (answerHashes) x.answerHashes = keep.length ? answerHashes.filter((h) => !keep.includes(h) || (x.answerHashes || []).includes(h)) : answerHashes;
       if (image !== undefined) x.image = image;
       if (answerImage !== undefined) x.answerImage = answerImage;
       x.editedAt = new Date().toISOString().slice(0, 10);
@@ -177,7 +180,7 @@ async function savePuzzle(p, answers, pics) {
   // Keep a copy of the answers so the edit form can show them later.
   if (!photo && answers.length) {
     const cfg = savesConfig(settings) || savesConfig((await readRepoJson('settings').catch(() => ({}))).data);
-    if (cfg) await saveAnswers(cfg, id, answers).catch(() => {});
+    if (cfg) await (keep.length ? addSeenAnswers(cfg, id, answers) : saveAnswers(cfg, id, answers)).catch(() => {});
   }
   return id;
 }
