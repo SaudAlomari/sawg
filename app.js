@@ -980,7 +980,7 @@ const WORD_KEYS = [
   ['ذ', 'ء', 'ئ', 'ؤ', 'ر', 'ى', 'ة', 'و', 'ز', 'ظ', 'د'],
 ];
 
-// A random word of the puzzle's length; 5 tries; after 5 misses the player
+// A random word of the puzzle's length; 6 tries; after 6 misses the player
 // starts again with a new word. The word in play is kept in the progress
 // (lightly scrambled) so reloading doesn't give a new one.
 function wordGame(p, practice, progress, before, fb, onWin) {

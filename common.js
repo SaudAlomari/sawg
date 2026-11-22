@@ -128,7 +128,7 @@ async function loadJson(path) {
 
 const WORD_MIN = 3;
 const WORD_MAX = 7;
-const WORD_GUESSES = 5;
+const WORD_GUESSES = 6;
 
 function wordLetters(w) {
   return [...normalize(w).replace(/\s/g, '')];

@@ -81,8 +81,8 @@ button.bad { color: var(--bad); }
 .alt-row input { flex: 1; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 .between { justify-content: space-between; margin-top: 0; }
-.tabs { display: flex; gap: 8px; margin-bottom: 8px; }
-.tabs button { flex: 1; }
+.tabs { display: flex; gap: 8px; margin-bottom: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: 4px; }
+.tabs button { flex: 1 0 auto; white-space: nowrap; }
 .tabs button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
 .muted { color: var(--muted); }

@@ -17,7 +17,7 @@ A family & friends trivia and puzzle game that runs entirely on GitHub, with no 
    - **Puzzles:** players send puzzles from the site; they wait under Admin → Pending (stored in `pendingPuzzles.json` in the saves repo) until approved.
    - **Leaderboard:** ranks players by puzzles solved, then jewels. Players can show as "مجهول" (set in their profile); the admin still sees who. They can also leave the leaderboard entirely; only the admin sees who left.
    - **Answers in edit form:** a copy of each puzzle's answers (lightly scrambled) is kept in `puzzleAnswers.json` in the saves repo. Older puzzles that came in as pending are found once in `pendingPuzzles.json` history; answers of older puzzles were worked out from their hashes and are kept, lightly scrambled, in `data/answers-seed.json`.
-   - **Guess the word (خمّن الكلمة):** admin-only puzzle type with a letter count (3–7, reward = letters − 1). Each player gets a random word of that length from `data/words-base.json` (built-in, hidden from Admin) plus `data/words.json` (added under Admin → Word dictionary); 5 tries, then a new word.
+   - **Guess the word (خمّن الكلمة):** admin-only puzzle type with a letter count (3–7, reward = letters − 1). Each player gets a random word of that length from `data/words-base.json` (built-in, hidden from Admin) plus `data/words.json` (added under Admin → Word dictionary); 6 tries, then a new word.
 4. **Submit a puzzle.** Players fill in the puzzle form (pictures included). It waits under Admin → **Pending** until the admin approves it into `data/puzzles.json`.
 
 The admin can also deactivate or delete users and delete puzzles from the Admin page. Puzzles the admin adds or edits go into the game straight away.
