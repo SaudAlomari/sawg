@@ -133,6 +133,7 @@ async function savePuzzle(p, answers, pics) {
   const image = await put(pics.q, `${id}${stamp}`, 'question picture');
   const answerImage = await put(pics.a, `${id}-answer${stamp}`, 'answer picture');
   const photo = p.type === 'photo';
+  const word = p.type === 'word';
   const grid = p.grid === 3 ? 3 : 2;
   if (photo && (editing ? image === null : !image)) throw new Error('An "arrange the photo" puzzle needs a question picture.');
   // For a photo puzzle the answer is the pieces in order.
@@ -141,13 +142,15 @@ async function savePuzzle(p, answers, pics) {
   // Old answers nobody has typed yet stay accepted (keepHashes, when editing).
   const keep = editing && !photo && answerHashes && Array.isArray(p.keepHashes) ? p.keepHashes.filter((h) => /^[0-9a-f]{64}$/.test(h)) : [];
   if (keep.length) answerHashes = [...new Set([...answerHashes, ...keep])];
+  if (word) answerHashes = []; // a random dictionary word each time
   if (!editing && !answerHashes) throw new Error('This puzzle has no answer.');
   const fields = {
     question: String(p.question).slice(0, 1000),
-    type: photo ? 'photo' : p.type === 'choice' ? 'choice' : 'text',
+    type: photo ? 'photo' : word ? 'word' : p.type === 'choice' ? 'choice' : 'text',
     options: p.type === 'choice' ? (p.options || []).slice(0, 6) : [],
     hints: puzzleHints(p).slice(0, MAX_HINTS).map((h) => ({ text: String(h.text).slice(0, 300), size: h.size === 'small' ? 'small' : 'big' })),
     ...(photo ? { grid, scramble: validScramble(p.scramble, grid) ? p.scramble : makeScramble(grid) } : {}),
+    ...(word ? { length: Math.min(WORD_MAX, Math.max(WORD_MIN, Number(p.length) || 5)) } : {}),
   };
   await updateRepoJson('puzzles', (all) => {
     if (editing) {
@@ -159,6 +162,7 @@ async function savePuzzle(p, answers, pics) {
         delete x.grid;
         delete x.scramble;
       }
+      if (!word) delete x.length;
       if (answerHashes) x.answerHashes = keep.length ? answerHashes.filter((h) => !keep.includes(h) || (x.answerHashes || []).includes(h)) : answerHashes;
       if (image !== undefined) x.image = image;
       if (answerImage !== undefined) x.answerImage = answerImage;
@@ -178,7 +182,7 @@ async function savePuzzle(p, answers, pics) {
     });
   }, editing ? `Edit puzzle ${id}` : `Add puzzle ${id} by ${p.by || p.author}`);
   // Keep a copy of the answers so the edit form can show them later.
-  if (!photo && answers.length) {
+  if (!photo && !word && answers.length) {
     const cfg = savesConfig(settings) || savesConfig((await readRepoJson('settings').catch(() => ({}))).data);
     if (cfg) await (keep.length ? addSeenAnswers(cfg, id, answers) : saveAnswers(cfg, id, answers)).catch(() => {});
   }
@@ -198,6 +202,7 @@ function adminView(app) {
     $('#a-users').hidden = name !== 'users';
     $('#a-puzzles').hidden = name !== 'puzzles';
     $('#a-pending').hidden = name !== 'pending';
+    $('#a-words').hidden = name !== 'words';
   };
   app.querySelectorAll('[data-admin-tab]').forEach((b) => (b.onclick = () => showTab(b.dataset.adminTab)));
   showTab(adminTab);
@@ -230,6 +235,94 @@ function adminView(app) {
 
   let lastCfg = null;
   let lastPuzzles = [];
+
+  // ----- word dictionary (for "guess the word" puzzles) -----
+  // Lists only the admin's own words (data/words.json); the built-in list
+  // (data/words-base.json) is used in play and for spotting repeats.
+  let baseWords = null;
+  const wordKey = (w) => wordLetters(w).join('');
+  async function renderWords() {
+    const list = $('#w-list');
+    if (!list) return;
+    try {
+      if (!baseWords) baseWords = await loadJson('data/words-base.json').catch(() => []);
+      const { data: mine } = await readRepoJson('words');
+      if (!$('#w-list')) return;
+      const counts = {};
+      new Set([...baseWords, ...mine].map(wordKey)).forEach((k) => (counts[k.length] = (counts[k.length] || 0) + 1));
+      $('#w-counts').textContent = 'Words in the game by length (built-in + yours): ' +
+        [3, 4, 5, 6, 7].map((n) => `${n} letters: ${counts[n] || 0}`).join(' · ');
+      $('#w-mine-count').textContent = `(${mine.length})`;
+      list.replaceChildren();
+      if (!mine.length) list.append(el('li', { className: 'empty', textContent: 'You haven\'t added any words yet.' }));
+      [...mine].sort((a, b) => wordKey(a).length - wordKey(b).length || a.localeCompare(b, 'ar')).forEach((w) => {
+        const del = el('button', { className: 'link', textContent: 'Remove' });
+        del.onclick = () => {
+          if (!confirm(`Remove "${w}" from the dictionary?`)) return;
+          doSave(del, async () => {
+            await updateRepoJson('words', (all) => {
+              const i = all.indexOf(w);
+              if (i >= 0) all.splice(i, 1);
+            }, `Remove word ${w}`);
+            saved('Word removed.');
+            renderWords();
+          });
+        };
+        list.append(el('li', { className: 'word-item' },
+          el('span', { textContent: w, dir: 'rtl', lang: 'ar', style: 'font-weight:700;font-size:1.15rem' }),
+          el('span', { className: 'muted small', textContent: ` ${wordKey(w).length} letters ` }), del));
+      });
+    } catch (e) {
+      list.replaceChildren(el('li', { className: 'error', textContent: e.message }));
+    }
+  }
+
+  $('#w-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = $('#w-msg');
+    const typed = e.target.words.value.split(/[\s,،]+/).filter(Boolean);
+    const bad = typed.filter((w) => !cleanWord(w));
+    const words = typed.map(cleanWord).filter(Boolean).filter((w, i, all) => all.findIndex((x) => wordKey(x) === wordKey(w)) === i);
+    const button = e.target.querySelector('[type=submit]');
+    if (!words.length) {
+      msg.className = 'small error';
+      msg.textContent = bad.length ? `Not added: ${bad.join(', ')}. Use Arabic letters only, 3 to 7 letters.` : 'Type a word first.';
+      return;
+    }
+    let added = [];
+    let already = [];
+    let ok = false;
+    await doSave(button, async () => {
+      if (!baseWords) baseWords = await loadJson('data/words-base.json').catch(() => []);
+      await updateRepoJson('words', (all) => {
+        added = [];
+        already = [];
+        const have = new Set([...baseWords, ...all].map(wordKey));
+        for (const w of words) {
+          if (have.has(wordKey(w))) already.push(w);
+          else {
+            have.add(wordKey(w));
+            all.push(w);
+            added.push(w);
+          }
+        }
+        if (!added.length) throw new Error('nothing new');
+      }, `Add words: ${words.join(' ')}`).catch((err) => {
+        if (err.message !== 'nothing new') throw err;
+      });
+      ok = true;
+    });
+    if (!ok) return;
+    const parts = [];
+    if (added.length) parts.push(`✅ Added: ${added.join('، ')}`);
+    if (already.length) parts.push(`⚠️ Already in the dictionary: ${already.join('، ')}`);
+    if (bad.length) parts.push(`❌ Not added (Arabic letters only, 3 to 7 letters): ${bad.join('، ')}`);
+    msg.className = 'small' + (added.length ? '' : ' error');
+    msg.textContent = parts.join(' · ');
+    if (added.length) e.target.words.value = '';
+    renderWords();
+  };
+  renderWords();
 
   async function refresh() {
     try {
@@ -356,6 +449,7 @@ function adminView(app) {
         p.answerImage ? el('div', { className: 'size', textContent: `Answer picture · ${formatSize(imgs[p.answerImage])}` }) : null,
         p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
       p.type === 'photo' ? el('div', { className: 'meta', textContent: `🧩 Arrange the photo · ${(p.grid === 3 ? 9 : 4)} pieces` }) : null,
+      p.type === 'word' ? el('div', { className: 'meta', textContent: `🔤 Guess the word · ${p.length} letters · reward ${p.length - 1} jewels` }) : null,
         el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
         el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del),
         moveControls(p, n, puzzles.length)));
@@ -590,6 +684,7 @@ function adminView(app) {
       el('div', { textContent: p.question, style: 'white-space:pre-wrap;font-weight:600', dir: 'auto' }),
       p.type === 'choice' ? el('div', { className: 'meta', textContent: 'Options: ' + p.options.join(' / ') }) : null,
       p.type === 'photo' ? el('div', { className: 'meta', textContent: `🧩 Arrange the photo · ${(p.grid === 3 ? 9 : 4)} pieces` }) : null,
+      p.type === 'word' ? el('div', { className: 'meta', textContent: `🔤 Guess the word · ${p.length} letters · reward ${p.length - 1} jewels` }) : null,
       p.type === 'photo' ? null : el('div', { className: 'meta', textContent: !p.answers.length ? 'Answers: no change' : (p.answers.length > 1 ? 'Accepted answers: ' : 'Answer: ') + p.answers.join(' | ') }),
       ...hints.map((h, i) => el('div', { className: 'meta', textContent: `Hint ${i + 1} (${h.size === 'small' ? 'small, 2 💎' : 'big, 4 💎'}): ${h.text}` })),
       el('h3', { textContent: 'Question picture' }), q.note, q.input, q.img, q.size,

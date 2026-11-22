@@ -122,3 +122,56 @@ async function loadJson(path) {
   if (!res.ok) throw new Error('تعذّر التحميل. تحقق من الإنترنت وحاول مرة أخرى.');
   return res.json();
 }
+
+// ---------- guess-the-word puzzles ----------
+// Words are compared letter by letter after normalize() (أ إ آ = ا, ة = ه, ى = ي).
+
+const WORD_MIN = 3;
+const WORD_MAX = 7;
+const WORD_GUESSES = 5;
+
+function wordLetters(w) {
+  return [...normalize(w).replace(/\s/g, '')];
+}
+
+// A word the dictionary can hold: Arabic letters only, 3 to 7 of them.
+function cleanWord(w) {
+  const s = String(w || '').replace(/[ً-ْٰـ]/g, '').trim();
+  if (!/^[ء-ي]+$/.test(s)) return null;
+  const n = wordLetters(s).length;
+  return n >= WORD_MIN && n <= WORD_MAX ? s : null;
+}
+
+// Colours for a guess: 'ok' right place, 'near' in the word elsewhere, 'no' not in it.
+function scoreGuess(guess, secret) {
+  const g = wordLetters(guess);
+  const s = wordLetters(secret);
+  const out = g.map(() => 'no');
+  const left = {};
+  s.forEach((c, i) => {
+    if (g[i] === c) out[i] = 'ok';
+    else left[c] = (left[c] || 0) + 1;
+  });
+  g.forEach((c, i) => {
+    if (out[i] !== 'ok' && left[c]) {
+      out[i] = 'near';
+      left[c]--;
+    }
+  });
+  return out;
+}
+
+// The built-in words plus the admin's, without repeats.
+async function loadWords() {
+  const [base, mine] = await Promise.all([
+    loadJson('data/words-base.json').catch(() => []),
+    loadJson('data/words.json').catch(() => []),
+  ]);
+  const seen = new Set();
+  return [...base, ...mine].filter((w) => {
+    const k = wordLetters(w).join('');
+    if (!cleanWord(w) || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}

@@ -30,10 +30,11 @@ function loadProgress() {
       p.postpones = p.postpones || 0;
       if (!p.misses || typeof p.misses !== 'object') p.misses = {};
       if (!p.extra || typeof p.extra !== 'object') p.extra = {};
+      if (!p.word || typeof p.word !== 'object') p.word = {};
       return p;
     }
   } catch {}
-  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {}, extra: {} };
+  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {}, extra: {}, word: {} };
 }
 
 // Jewels: +2 for each solved puzzle (multiple choice: 2 on the first try,
@@ -61,7 +62,7 @@ let pending = null;
 async function uploadProgress(p) {
   const cfg = savesConfig(settings);
   if (!cfg || !me) return;
-  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, extra: p.extra || {}, current: p.current || null } };
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, extra: p.extra || {}, word: p.word || {}, current: p.current || null } };
   if (uploading) return;
   uploading = true;
   while (pending) {
@@ -89,7 +90,7 @@ async function syncDown() {
     saves = data;
     me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
-    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, extra: saved.extra || {}, current: saved.current || null });
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, extra: saved.extra || {}, word: saved.word || {}, current: saved.current || null });
     else {
       const local = loadProgress();
       if (local.solved.length || local.skipped.length) await uploadProgress(local);
@@ -368,6 +369,9 @@ function play() {
     draw();
     $('#p-options').before(el('p', { className: 'muted small', textContent: `اضغط على قطعتين لتبديل مكانهما حتى تكتمل الصورة. المكافأة: ${grid === 3 ? 3 : 2} 💎` }), board);
     $('#p-submit').hidden = true;
+  } else if (p.type === 'word') {
+    $('#p-submit').hidden = true;
+    wordGame(p, practice, progress, $('#p-options'), $('#p-feedback'), () => win());
   } else if (p.type === 'choice') {
     const note = el('p', { className: 'muted small', textContent: 'من أول محاولة: ٢ 💎 · من الثانية: ١ 💎 · بعدها: ٠' });
     $('#p-options').before(note);
@@ -455,15 +459,24 @@ function play() {
       const left = solveReward(progress, p.id);
       fb.textContent += left ? ` إذا أصبت الآن تحصل على ${left} 💎.` : ' لن تحصل على جواهر لهذا اللغز، لكن تستطيع حله.';
     }
-    if (correct && practice) {
+    if (correct) win();
+  };
+  const win = () => {
+    fb.hidden = false;
+    fb.className = 'feedback ok';
+    if (practice) {
       fb.textContent = '✅ إجابة صحيحة! (تجربة، بدون جواهر)';
       if (p.answerImage) {
         $('#p-answer-image').src = p.answerImage;
         $('#p-answer-image').hidden = false;
       }
       finish();
-    } else if (correct) {
+    } else {
       if (p.type === 'photo' && p.grid === 3) progress.extra[p.id] = 1; // 9 pieces: 3 jewels
+      if (p.type === 'word') {
+        progress.extra[p.id] = wordLength(p) - 3; // letters − 1 jewels
+        delete progress.word[p.id];
+      }
       progress.solved.push(p.id);
       saveProgress(progress);
       showJewels();
@@ -478,7 +491,7 @@ function play() {
   photoDone = check;
   $('#answer-form').onsubmit = (e) => {
     e.preventDefault();
-    if (p.type !== 'photo') check(p.type === 'choice' ? chosen : $('#p-text').value);
+    if (p.type !== 'photo' && p.type !== 'word') check(p.type === 'choice' ? chosen : $('#p-text').value);
   };
 
   // Postpone: costs 1 jewel, the puzzle comes back after 3 more puzzles.
@@ -527,10 +540,16 @@ function submit(edit) {
     const t = form.type.value;
     $('#s-options').hidden = t !== 'choice';
     $('#s-photo').hidden = t !== 'photo';
-    $('#s-answers').hidden = t === 'photo';
-    form.answers.required = t !== 'photo' && !edit;
-    form.question.required = t !== 'photo';
+    $('#s-word').hidden = t !== 'word';
+    $('#s-answers').hidden = t === 'photo' || t === 'word';
+    // Guess the word: only the number of letters.
+    form.question.parentElement.hidden = t === 'word';
+    $('#s-hints-box').hidden = t === 'word';
+    $('#s-pictures').hidden = t === 'word';
+    form.answers.required = t !== 'photo' && t !== 'word' && !edit;
+    form.question.required = t !== 'photo' && t !== 'word';
   };
+  form.querySelector('.admin-only').hidden = !me.admin;
   form.querySelectorAll('[name=type]').forEach((r) => (r.onchange = setType));
 
   // Up to 5 alternative answers, each in its own box.
@@ -607,7 +626,8 @@ function submit(edit) {
     $('#s-title').textContent = '✏️ عدّل اللغز';
     $('#s-intro').textContent = direct ? 'تُحفظ التعديلات في اللعبة مباشرة.' : 'تُرسل تعديلاتك إلى المشرف، ويبقى اللغز كما هو حتى يوافق عليها.';
     form.question.value = edit.question;
-    form.type.value = ['choice', 'photo'].includes(edit.type) ? edit.type : 'text';
+    form.type.value = ['choice', 'photo', 'word'].includes(edit.type) ? edit.type : 'text';
+    if (edit.type === 'word') form.wordLength.value = String(wordLength(edit));
     form.grid.value = edit.grid === 3 ? '3' : '2';
     form.querySelectorAll('[name=opt]').forEach((x, i) => (x.value = (edit.options || [])[i] || ''));
     form.answers.required = false;
@@ -615,7 +635,7 @@ function submit(edit) {
     // Show the current answers so they can be seen and changed.
     const note = el('p', { className: 'muted small' });
     alts.after(note);
-    if (edit.type !== 'photo') {
+    if (edit.type !== 'photo' && edit.type !== 'word') {
       note.textContent = '⏳ جارٍ تحميل الإجابات الحالية…';
       (savesConfig(settings) ? Promise.resolve() : refreshData())
         .then(() => {
@@ -657,9 +677,11 @@ function submit(edit) {
       .filter(Boolean)
       .filter((a, i, all) => all.findIndex((b) => normalize(b) === normalize(a)) === i);
     const options = type === 'choice' ? [...form.querySelectorAll('[name=opt]')].map((x) => x.value.trim()) : [];
-    const editType = edit ? (['choice', 'photo'].includes(edit.type) ? edit.type : 'text') : null;
+    const editType = edit ? (['choice', 'photo', 'word'].includes(edit.type) ? edit.type : 'text') : null;
     const grid = form.grid.value === '3' ? 3 : 2;
-    if (type === 'photo') {
+    if (type === 'word') {
+      if (!direct) return showMsg(err, 'هذا النوع يضيفه المشرف من جهاز فيه مفتاح GitHub.');
+    } else if (type === 'photo') {
       const hasPhoto = form.qImage.files[0] || (edit && edit.image && !(removeBox.q && removeBox.q.checked));
       if (!hasPhoto) return showMsg(err, 'ارفع صورة السؤال لتُقطّع وتُخلط.');
     } else if (!answers.length && !edit) return showMsg(err, 'اكتب الإجابة الصحيحة.');
@@ -668,7 +690,7 @@ function submit(edit) {
       if (new Set(options.map(normalize)).size < 4) return showMsg(err, 'الخيارات الأربعة يجب أن تكون مختلفة.');
       if (!answers.every((a) => options.some((o) => normalize(o) === normalize(a)))) return showMsg(err, 'الإجابة الصحيحة يجب أن تكون أحد الخيارات.');
     }
-    if (edit && type !== 'photo' && !answers.length && type !== editType) {
+    if (edit && type !== 'photo' && type !== 'word' && !answers.length && type !== editType) {
       return showMsg(err, 'غيّرت نوع الإجابة، فاكتب الإجابة الصحيحة من جديد.');
     }
     const hints = [...hintsBox.querySelectorAll('.hint-row')]
@@ -681,11 +703,12 @@ function submit(edit) {
     // Keep the same scramble unless the photo or the number of pieces changed.
     const keepScramble = edit && editType === 'photo' && edit.grid === grid && !files.q && validScramble(edit.scramble, grid);
     const entry = {
-      question: form.question.value.trim().slice(0, 1000) || (type === 'photo' ? 'رتّب أجزاء الصورة' : ''),
+      question: type === 'word' ? 'خمّن الكلمة' : form.question.value.trim().slice(0, 1000) || (type === 'photo' ? 'رتّب أجزاء الصورة' : ''),
       type,
       options,
       ...(type === 'photo' ? { grid, scramble: keepScramble ? edit.scramble : makeScramble(grid) } : {}),
-      hints,
+      ...(type === 'word' ? { length: Number(form.wordLength.value) } : {}),
+      hints: type === 'word' ? [] : hints,
       author: me.displayName,
       by: me.username,
       ...(edit ? { edits: edit.id } : {}),
@@ -944,3 +967,170 @@ loadData()
     route();
   })
   .catch((e) => app.replaceChildren(el('p', { className: 'error', textContent: e.message })));
+
+// ---------- guess the word ----------
+
+function wordLength(p) {
+  return Math.min(WORD_MAX, Math.max(WORD_MIN, Number(p.length) || 5));
+}
+
+const WORD_KEYS = [
+  ['ض', 'ص', 'ث', 'ق', 'ف', 'غ', 'ع', 'ه', 'خ', 'ح', 'ج'],
+  ['ش', 'س', 'ي', 'ب', 'ل', 'ا', 'ت', 'ن', 'م', 'ك', 'ط'],
+  ['ذ', 'ء', 'ئ', 'ؤ', 'ر', 'ى', 'ة', 'و', 'ز', 'ظ', 'د'],
+];
+
+// A random word of the puzzle's length; 5 tries; after 5 misses the player
+// starts again with a new word. The word in play is kept in the progress
+// (lightly scrambled) so reloading doesn't give a new one.
+function wordGame(p, practice, progress, before, fb, onWin) {
+  const n = wordLength(p);
+  const box = el('div', { className: 'word-game' });
+  const grid = el('div', { className: 'word-grid' });
+  grid.style.maxWidth = `${n * 62}px`;
+  const keys = el('div', { className: 'word-keys' });
+  const again = el('button', { type: 'button', className: 'primary', textContent: '🔄 كلمة جديدة', hidden: true });
+  box.append(grid, again, keys);
+  before.before(
+    el('p', { className: 'muted small', textContent: `خمّن الكلمة المكونة من ${n} أحرف. لديك ${WORD_GUESSES} محاولات. 🟩 الحرف في مكانه · 🟧 الحرف في الكلمة بمكان آخر · ⬛ الحرف ليس في الكلمة. المكافأة: ${n - 1} 💎` }),
+    box,
+  );
+  grid.textContent = '⏳';
+
+  let words = [];
+  let state = null; // { s: scrambled word, g: [guesses] }
+  let typed = [];
+  let over = false;
+  const secret = () => {
+    try {
+      return revealKey(state.s);
+    } catch {
+      return '';
+    }
+  };
+  const save = () => {
+    if (practice) return;
+    progress.word[p.id] = state;
+    saveProgress(progress);
+  };
+  const fresh = (avoid) => {
+    const pool = words.filter((w) => wordLetters(w).length === n && w !== avoid);
+    const all = pool.length ? pool : words.filter((w) => wordLetters(w).length === n);
+    if (!all.length) return null;
+    return { s: hideKey(all[Math.floor(Math.random() * all.length)]), g: [] };
+  };
+  const say = (text, ok) => {
+    fb.hidden = !text;
+    fb.className = 'feedback ' + (ok ? 'ok' : 'bad');
+    fb.textContent = text || '';
+  };
+
+  const draw = () => {
+    const word = secret();
+    const rows = [];
+    const keyState = {};
+    const rank = { no: 1, near: 2, ok: 3 };
+    for (let r = 0; r < WORD_GUESSES; r++) {
+      const guess = state.g[r];
+      const letters = guess ? [...guess] : r === state.g.length && !over ? typed : [];
+      const marks = guess ? scoreGuess(guess, word) : [];
+      if (guess) letters.forEach((c, i) => {
+        const k = wordLetters(c).join('');
+        if (!keyState[k] || rank[marks[i]] > rank[keyState[k]]) keyState[k] = marks[i];
+      });
+      const row = el('div', { className: 'word-row' });
+      row.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+      for (let i = 0; i < n; i++) row.append(el('span', { className: 'word-tile' + (marks[i] ? ' ' + marks[i] : letters[i] ? ' filled' : ''), textContent: letters[i] || '' }));
+      rows.push(row);
+    }
+    grid.replaceChildren(...rows);
+    keys.replaceChildren(
+      ...WORD_KEYS.map((line) => el('div', { className: 'word-key-row' }, ...line.map((k) => {
+        const b = el('button', { type: 'button', className: 'word-key ' + (keyState[wordLetters(k).join('')] || ''), textContent: k });
+        b.onclick = () => press(k);
+        return b;
+      }))),
+      el('div', { className: 'word-key-row' },
+        Object.assign(el('button', { type: 'button', className: 'word-key wide primary', textContent: 'إدخال' }), { onclick: () => press('Enter') }),
+        Object.assign(el('button', { type: 'button', className: 'word-key wide', textContent: '⌫' }), { onclick: () => press('Backspace') })),
+    );
+    keys.hidden = over;
+  };
+
+  const lost = () => {
+    over = true;
+    say(`❌ انتهت المحاولات. الكلمة كانت: ${secret()}. جرّب كلمة جديدة!`);
+    again.hidden = false;
+  };
+
+  const press = (k) => {
+    if (over) return;
+    if (k === 'Backspace') typed.pop();
+    else if (k === 'Enter') {
+      if (typed.length < n) return say(`اكتب ${n} أحرف.`);
+      const guess = typed.join('');
+      typed = [];
+      state.g.push(guess);
+      save();
+      if (scoreGuess(guess, secret()).every((m) => m === 'ok')) {
+        over = true;
+        draw();
+        return onWin();
+      }
+      if (state.g.length >= WORD_GUESSES) {
+        draw();
+        return lost();
+      }
+      say('');
+    } else if (typed.length < n && /^[ء-ي]$/.test(k)) typed.push(k);
+    draw();
+  };
+
+  again.onclick = () => {
+    state = fresh(secret());
+    typed = [];
+    over = false;
+    again.hidden = true;
+    say('');
+    save();
+    draw();
+  };
+
+  // A computer keyboard works too.
+  const onKey = (e) => {
+    if (!box.isConnected) return document.removeEventListener('keydown', onKey);
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA)$/.test((e.target || {}).tagName || '')) return;
+    if (e.key === 'Enter' || e.key === 'Backspace' || /^[ء-ي]$/.test(e.key)) {
+      e.preventDefault();
+      press(e.key);
+    }
+  };
+  document.addEventListener('keydown', onKey);
+
+  loadWords().then((list) => {
+    words = list;
+    if (!box.isConnected) return;
+    const saved = !practice && progress.word[p.id];
+    state = saved && Array.isArray(saved.g) ? saved : null;
+    try {
+      if (state && wordLetters(revealKey(state.s)).length !== n) state = null; // the admin changed the length
+    } catch {
+      state = null;
+    }
+    if (!state) {
+      state = fresh();
+      if (!state) {
+        grid.textContent = 'لا توجد كلمات بهذا الطول في القاموس بعد.';
+        keys.hidden = true;
+        return;
+      }
+      save();
+    }
+    draw();
+    if (state.g.length && scoreGuess(state.g[state.g.length - 1], secret()).every((m) => m === 'ok')) {
+      over = true;
+      draw();
+      onWin();
+    } else if (state.g.length >= WORD_GUESSES) lost();
+  });
+}

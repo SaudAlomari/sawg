@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
   <header class="top">
@@ -105,6 +105,7 @@
           <label class="inline"><input type="radio" name="type" value="text" checked> إجابة مكتوبة</label>
           <label class="inline"><input type="radio" name="type" value="choice"> اختيار من متعدد</label>
           <label class="inline"><input type="radio" name="type" value="photo"> رتّب الصورة</label>
+          <label class="inline admin-only" hidden><input type="radio" name="type" value="word"> خمّن الكلمة (للمشرف)</label>
         </fieldset>
         <div id="s-options" hidden>
           <p class="small">الخيارات الأربعة (كلها مطلوبة):</p>
@@ -119,22 +120,36 @@
           <label class="inline"><input type="radio" name="grid" value="2" checked> سهل: ٤ أجزاء (٢ 💎)</label>
           <label class="inline"><input type="radio" name="grid" value="3"> صعب: ٩ أجزاء (٣ 💎)</label>
         </div>
+        <div id="s-word" hidden>
+          <p class="small">تظهر للاعب كلمة عشوائية من القاموس بهذا العدد من الأحرف، وله ٥ محاولات. إذا لم يعرفها تبدأ له كلمة جديدة.</p>
+          <label>عدد الأحرف
+            <select name="wordLength">
+              <option value="3">٣ أحرف (٢ 💎)</option>
+              <option value="4">٤ أحرف (٣ 💎)</option>
+              <option value="5" selected>٥ أحرف (٤ 💎)</option>
+              <option value="6">٦ أحرف (٥ 💎)</option>
+              <option value="7">٧ أحرف (٦ 💎)</option>
+            </select>
+          </label>
+        </div>
         <div id="s-answers">
           <label>الإجابة الصحيحة <input name="answers" required placeholder="مثال: الرياض"></label>
           <div id="s-alts"></div>
           <button type="button" id="s-add-alt">➕ أضف إجابة بديلة</button>
           <p class="muted small">الإجابات البديلة تُقبل أيضًا (حتى ٥)، مثال: <b>كيبورد</b> و<b>لوحة المفاتيح</b>.<br>لا يهم الفرق بين (أ) و(ا)، ولا بين (ة) و(ه)، ولا وجود (ال) في أول الكلمة.</p>
         </div>
-        <fieldset>
+        <fieldset id="s-hints-box">
           <legend>التلميحات (اختياري، حتى ٤)</legend>
           <p class="muted small">التلميح الصغير يكلّف اللاعب جوهرتين، والكبير ٤ جواهر.</p>
           <div id="s-hints"></div>
           <button type="button" id="s-add-hint">➕ أضف تلميحًا</button>
         </fieldset>
+        <div id="s-pictures">
         <label>صورة السؤال (اختياري) <input type="file" name="qImage" accept="image/*"></label>
         <img class="preview" id="s-q-preview" alt="" hidden>
         <label>صورة الإجابة، تظهر بعد الحل الصحيح (اختياري) <input type="file" name="aImage" accept="image/*"></label>
         <img class="preview" id="s-a-preview" alt="" hidden>
+        </div>
         <p class="error" hidden></p>
         <button type="submit" class="primary">أرسل اللغز</button>
       </form>
@@ -207,11 +222,24 @@
         <button data-admin-tab="users" class="active">Users <span class="badge" id="signup-count"></span></button>
         <button data-admin-tab="pending">Pending <span class="badge" id="pending-count"></span></button>
         <button data-admin-tab="puzzles">Puzzles</button>
+        <button data-admin-tab="words">Word dictionary</button>
       </div>
       <p class="success" id="saved" hidden></p>
       <ul id="a-users" class="list"></ul>
       <ul id="a-pending" class="list" hidden></ul>
       <ul id="a-puzzles" class="list" hidden></ul>
+      <div id="a-words" hidden>
+        <form id="w-form">
+          <label>Add Arabic words (3 to 7 letters). Put several on separate lines or with spaces between them.
+            <textarea name="words" rows="3" dir="rtl" lang="ar" required></textarea>
+          </label>
+          <button type="submit" class="primary">Add words</button>
+          <p class="small" id="w-msg"></p>
+        </form>
+        <p class="muted small" id="w-counts"></p>
+        <h3>Your words <span class="muted small" id="w-mine-count"></span></h3>
+        <ul id="w-list" class="list"></ul>
+      </div>
       <p class="muted small">Changes show on the site about a minute after saving.</p>
     </section>
     <section class="card" dir="ltr" lang="en">
@@ -229,13 +257,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 23</p>
+      <p class="muted small">Site version 24</p>
     </section>
   </template>
 
-  <script src="common.js?v=23"></script>
-  <script src="saves.js?v=23"></script>
-  <script src="admin.js?v=23"></script>
-  <script src="app.js?v=23"></script>
+  <script src="common.js?v=24"></script>
+  <script src="saves.js?v=24"></script>
+  <script src="admin.js?v=24"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>
