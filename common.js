@@ -21,7 +21,7 @@ function showMsg(p, text) {
 }
 
 // Makes answers match even when spelled slightly differently: ignores case,
-// extra spaces, Arabic diacritics and tatweel, treats أ إ آ as ا, ى as ي,
+// extra spaces, Arabic diacritics and tatweel, treats أ إ آ ٱ as ا, ى as ي,
 // ة as ه, and Arabic digits as 0-9.
 function normalize(s) {
   return String(s || '')
@@ -83,6 +83,20 @@ function toHex(buf) {
 
 function randomHex(bytes) {
   return toHex(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+// "ال" doesn't matter: the same answer with ال added to or removed from the
+// start of each word. The stored hash is checked against every version.
+function answerVariants(answer) {
+  const words = normalize(answer).split(' ').filter(Boolean);
+  let out = [''];
+  for (const w of words) {
+    const bare = w.startsWith('ال') && w.length > 3 ? w.slice(2) : w;
+    const forms = [...new Set([w, bare, 'ال' + bare])];
+    out = out.flatMap((x) => forms.map((f) => (x ? x + ' ' : '') + f));
+    if (out.length > 256) return [normalize(answer)]; // very long answers: exact match only
+  }
+  return out.length ? out : [normalize(answer)];
 }
 
 // Answers are stored as SHA-256 hashes so they can't be read from puzzles.json.
