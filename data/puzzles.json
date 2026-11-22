@@ -310,5 +310,21 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-22"
+  },
+  {
+    "id": "p-mwrzru8ebbcc",
+    "question": "ما الشيء الذي اذا نطقت باسمه كسرته",
+    "type": "text",
+    "options": [],
+    "hints": [],
+    "answerHashes": [
+      "72985fc4243f06262494770c7a3c4b81ad6674baf14f218dd413a6a029bcb80d",
+      "5b38f510e426c0cd5d35313dd658c8b32525c5605e456955c879fdd231681402"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-22"
   }
 ]
