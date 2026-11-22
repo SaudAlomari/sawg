@@ -429,7 +429,9 @@ function play() {
 
   const check = async (answer) => {
     if (!answer || !answer.trim()) return;
-    const correct = p.answerHashes.includes(await hashAnswer(p.id, answer));
+    const tries = p.type === 'text' ? answerVariants(answer) : [answer];
+    const hashes = await Promise.all(tries.map((x) => hashAnswer(p.id, x)));
+    const correct = hashes.some((h) => p.answerHashes.includes(h));
     fb.hidden = false;
     fb.className = 'feedback ' + (correct ? 'ok' : 'bad');
     fb.textContent = correct ? '✅ إجابة صحيحة!' : '❌ ليست صحيحة. حاول مرة أخرى!';
