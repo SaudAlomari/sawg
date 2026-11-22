@@ -420,5 +420,32 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-22"
+  },
+  {
+    "id": "p-mwse2ukr8d47",
+    "question": "رتب الصورة",
+    "type": "photo",
+    "options": [],
+    "hints": [],
+    "grid": 3,
+    "scramble": [
+      8,
+      0,
+      6,
+      2,
+      5,
+      7,
+      1,
+      3,
+      4
+    ],
+    "answerHashes": [
+      "09ee0cdc0edc4c91dd3f6b12e55a68361dde947272027cce80c1023c378a44f6"
+    ],
+    "image": "images/p-mwse2ukr8d47.jpg",
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-22"
   }
 ]
