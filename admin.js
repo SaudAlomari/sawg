@@ -174,6 +174,11 @@ async function savePuzzle(p, answers, pics) {
       addedAt: new Date().toISOString().slice(0, 10),
     });
   }, editing ? `Edit puzzle ${id}` : `Add puzzle ${id} by ${p.by || p.author}`);
+  // Keep a copy of the answers so the edit form can show them later.
+  if (!photo && answers.length) {
+    const cfg = savesConfig(settings) || savesConfig((await readRepoJson('settings').catch(() => ({}))).data);
+    if (cfg) await saveAnswers(cfg, id, answers).catch(() => {});
+  }
   return id;
 }
 
