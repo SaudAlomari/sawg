@@ -326,5 +326,22 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-22"
+  },
+  {
+    "id": "p-mwrztu85ee7d",
+    "question": "ماهو الشيء الذي يمشي بلا ارجل ويبكي بلا عيون",
+    "type": "text",
+    "options": [],
+    "hints": [],
+    "answerHashes": [
+      "828d3ceaf84028e08dde4a52f0fe3547cbfe07b80c9202b91eea545bb3c1756b",
+      "6c8d532ec81ffa33499460349eaeef43e38da47640ceb4b7c7bae5ff7fc449ff",
+      "8e4bb2020029de2f8b862da9f5ba03bc28da6e7b9771b26fc978f0e4702a24c4"
+    ],
+    "image": null,
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-22"
   }
 ]
