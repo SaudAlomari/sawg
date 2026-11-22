@@ -11,6 +11,7 @@
 const SAVES_FILE = 'usersSavedData.json';
 const PENDING_FILE = 'pendingPuzzles.json'; // puzzles waiting for the admin, by id
 const SIGNUPS_FILE = 'pendingSignups.json'; // sign-ups waiting for the admin, by username
+const ANSWERS_FILE = 'puzzleAnswers.json'; // each puzzle's answers (lightly scrambled), so edits can show them
 const MASK = 'sawg-trivia-saves';
 
 function hideKey(key) {
@@ -76,6 +77,85 @@ async function updateSaves(cfg, change, message, file = SAVES_FILE) {
     await new Promise((r) => setTimeout(r, 300 + Math.random() * 700));
   }
   throw new Error('saves busy');
+}
+
+// ---------- answers, so the edit form can show them ----------
+// puzzles.json only has hashes of the answers. A copy of the answers is kept
+// here, lightly scrambled like the pending ones.
+
+async function sameAnswers(p, answers) {
+  if (!Array.isArray(answers) || !answers.length || !p.answerHashes) return false;
+  const hashes = await Promise.all(answers.map((a) => hashAnswer(p.id, a)));
+  return hashes.every((h) => p.answerHashes.includes(h)) && p.answerHashes.every((h) => hashes.includes(h));
+}
+
+function readHidden(text) {
+  try {
+    return JSON.parse(revealKey(text));
+  } catch {
+    return null;
+  }
+}
+
+async function saveAnswers(cfg, id, answers) {
+  await updateSaves(cfg, (all) => {
+    all[id] = hideKey(JSON.stringify(answers));
+  }, `Answers for ${id}`, ANSWERS_FILE);
+}
+
+// Older puzzles came in through pendingPuzzles.json before this copy existed,
+// so look for their answers in that file's history (once), keeping only
+// answers that still match the puzzle.
+async function recoverAnswers(cfg, puzzles) {
+  const found = {};
+  const shas = [];
+  for (let page = 1; page <= 3; page++) {
+    const res = await fetch(`https://api.github.com/repos/${cfg.repo}/commits?path=${PENDING_FILE}&per_page=100&page=${page}`, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${cfg.key}`, Accept: 'application/vnd.github+json' },
+    });
+    if (!res.ok) break;
+    const list = await res.json();
+    shas.push(...list.map((c) => c.sha));
+    if (list.length < 100) break;
+  }
+  const versions = [];
+  for (let i = 0; i < shas.length; i += 10) {
+    versions.push(...await Promise.all(shas.slice(i, i + 10).map(async (sha) => {
+      try {
+        const res = await savesFetch(cfg, {}, `${PENDING_FILE}?ref=${sha}`);
+        return res.ok ? JSON.parse(b64ToUtf8((await res.json()).content)) : {};
+      } catch {
+        return {};
+      }
+    })));
+  }
+  // Newest first, so the latest answers that still match win.
+  for (const p of puzzles) {
+    for (const v of versions) {
+      const hit = Object.values(v).find((x) => x && x.answersHidden && (x.edits || x.id) === p.id && x.type !== 'photo');
+      const answers = hit && readHidden(hit.answersHidden);
+      if (answers && (await sameAnswers(p, answers))) {
+        found[p.id] = hit.answersHidden;
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+// The current answers of a puzzle, or null when they aren't known.
+async function loadAnswers(cfg, p, puzzles) {
+  let { data } = await readSaves(cfg, ANSWERS_FILE);
+  if (!data[p.id] && !data._searched) {
+    const found = await recoverAnswers(cfg, puzzles.filter((x) => x.type !== 'photo' && !data[x.id]));
+    data = await updateSaves(cfg, (all) => {
+      Object.assign(all, found);
+      all._searched = new Date().toISOString().slice(0, 10);
+    }, 'Answers found in older puzzle submissions', ANSWERS_FILE);
+  }
+  const answers = data[p.id] && readHidden(data[p.id]);
+  return answers && (await sameAnswers(p, answers)) ? answers : null;
 }
 
 // ---------- pictures players upload with their puzzles ----------

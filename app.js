@@ -537,8 +537,8 @@ function submit(edit) {
   const alts = $('#s-alts');
   const addAlt = $('#s-add-alt');
   const updateAddAlt = () => (addAlt.hidden = alts.children.length >= MAX_ALTS);
-  addAlt.onclick = () => {
-    const input = el('input', { name: 'alt', placeholder: `إجابة بديلة ${alts.children.length + 1}`, maxLength: 200 });
+  const altRow = (value = '') => {
+    const input = el('input', { name: 'alt', placeholder: `إجابة بديلة ${alts.children.length + 1}`, maxLength: 200, value });
     const remove = el('button', { type: 'button', className: 'link', textContent: '✕', title: 'احذف' });
     const row = el('div', { className: 'alt-row' }, input, remove);
     remove.onclick = () => {
@@ -548,8 +548,9 @@ function submit(edit) {
     };
     alts.append(row);
     updateAddAlt();
-    input.focus();
+    return input;
   };
+  addAlt.onclick = () => altRow().focus();
 
   // Up to 4 hints, each small or big.
   const hintsBox = $('#s-hints');
@@ -610,6 +611,30 @@ function submit(edit) {
     form.querySelectorAll('[name=opt]').forEach((x, i) => (x.value = (edit.options || [])[i] || ''));
     form.answers.required = false;
     form.answers.placeholder = 'اتركها فارغة لإبقاء الإجابات الحالية';
+    // Show the current answers so they can be seen and changed.
+    const note = el('p', { className: 'muted small' });
+    alts.after(note);
+    if (edit.type !== 'photo') {
+      note.textContent = '⏳ جارٍ تحميل الإجابات الحالية…';
+      (savesConfig(settings) ? Promise.resolve() : refreshData())
+        .then(() => {
+          const cfg = savesConfig(settings);
+          if (!cfg) throw new Error('no saves');
+          return loadAnswers(cfg, edit, puzzles);
+        })
+        .then((list) => {
+          if (!form.isConnected) return;
+          if (!list) {
+            note.textContent = 'الإجابات الحالية لهذا اللغز غير محفوظة. اتركها فارغة لإبقائها، أو اكتبها هنا لتظهر في المرات القادمة.';
+            return;
+          }
+          note.textContent = '';
+          if (form.answers.value || alts.children.length) return; // already typing
+          form.answers.value = list[0];
+          list.slice(1, MAX_ALTS + 1).forEach((a) => altRow(a));
+        })
+        .catch(() => form.isConnected && (note.textContent = 'تعذّر تحميل الإجابات الحالية. اتركها فارغة لإبقائها كما هي.'));
+    }
     puzzleHints(edit).forEach((h) => hintRow(h.text, h.size));
     form.querySelector('[type=submit]').textContent = direct ? 'احفظ التعديلات' : 'أرسل التعديلات';
   }
