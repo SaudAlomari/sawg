@@ -47,5 +47,13 @@
     "hash": "77045a2bf05913aaa84c2c98424a33f4b6ffd93bbeb1ed9191f4602ec8848f85",
     "status": "active",
     "joinedAt": "2026-11-21"
+  },
+  {
+    "username": "farah",
+    "displayName": "farah",
+    "salt": "06461f6bf2899bff8ccd1ea034a8e016",
+    "hash": "75bb7951928630b7e440561c4c3d946f43f6dcb3d1dee167ee1e8fa6ae866e6b",
+    "status": "active",
+    "joinedAt": "2026-11-23"
   }
 ]
