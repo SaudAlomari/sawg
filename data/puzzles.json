@@ -571,5 +571,20 @@
     "author": "سعود",
     "by": "saud",
     "addedAt": "2026-11-23"
+  },
+  {
+    "id": "p-mwtkokntcf9e",
+    "question": "في اي مدينة التقطت هذه الصورة",
+    "type": "text",
+    "options": [],
+    "hints": [],
+    "answerHashes": [
+      "f313d08211079d754b3ec98c94d250c694d97eb60780b8cc4fbf8ef2628062b8"
+    ],
+    "image": "images/p-mwtkokntcf9e.jpg",
+    "answerImage": null,
+    "author": "سعود",
+    "by": "saud",
+    "addedAt": "2026-11-23"
   }
 ]
