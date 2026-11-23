@@ -304,6 +304,14 @@ function play() {
     }
     return dot;
   }));
+  // The dots are one sliding row: bring the current puzzle's dot to the middle.
+  const dots = $('#p-dots');
+  const nowDot = dots.querySelector('.now');
+  if (nowDot) {
+    const box = dots.getBoundingClientRect();
+    const d = nowDot.getBoundingClientRect();
+    dots.scrollLeft += d.left + d.width / 2 - (box.left + box.width / 2);
+  }
   const showJewels = () => ($('#p-jewels').textContent = `💎 ${jewels(progress)}`);
   showJewels();
   setSaveNote('ok');
