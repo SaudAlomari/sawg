@@ -55,5 +55,13 @@
     "hash": "75bb7951928630b7e440561c4c3d946f43f6dcb3d1dee167ee1e8fa6ae866e6b",
     "status": "active",
     "joinedAt": "2026-11-23"
+  },
+  {
+    "username": "zoro",
+    "displayName": "zoro",
+    "salt": "e5c3a03f7348df2abe8e0eb2a664e766",
+    "hash": "28dd9d36c1a7a02a725c13894df30e889fd6890386add6f8ab3dc5235561a763",
+    "status": "active",
+    "joinedAt": "2026-11-25"
   }
 ]
