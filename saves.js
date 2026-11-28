@@ -239,6 +239,12 @@ function groupOf(u, groups) {
   return id;
 }
 
+// Puzzles can be limited to some groups (p.groups: list of group ids).
+// No list, or an empty one, means every group sees it.
+function puzzleShownTo(p, group) {
+  return !Array.isArray(p.groups) || !p.groups.length || p.groups.includes(group);
+}
+
 // ---------- names and jewels ----------
 
 const PUZZLE_GIFT = 1; // jewels for each of your puzzles that is in the game

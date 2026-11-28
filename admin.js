@@ -342,7 +342,7 @@ function adminView(app) {
       renderGroups(groups, users, saves);
       const imgs = await listFolder((p) => gh(`${p}?ref=${SAWG.branch}`), 'images');
       if (!$('#a-puzzles')) return;
-      renderPuzzles(puzzles, users, saves, imgs || {});
+      renderPuzzles(puzzles, users, saves, imgs || {}, groups);
       renderSaves(settings, cfg, saves);
       renderStorage(cfg, imgs);
       const pending = cfg ? await readSaves(cfg, PENDING_FILE).then((r) => r.data).catch(() => ({})) : null;
@@ -434,6 +434,14 @@ function adminView(app) {
                 if (u.group === g.id) u.group = DEFAULT_GROUP;
               }), `Move players of group ${g.name} to Default`);
             }
+            // Puzzles only for this group go to Default, where its players went.
+            if (lastPuzzles.some((x) => Array.isArray(x.groups) && x.groups.includes(g.id))) {
+              await updateRepoJson('puzzles', (all) => all.forEach((x) => {
+                if (!Array.isArray(x.groups) || !x.groups.includes(g.id)) return;
+                x.groups = x.groups.filter((id) => id !== g.id);
+                if (!x.groups.includes(DEFAULT_GROUP)) x.groups.push(DEFAULT_GROUP);
+              }), `Show puzzles of group ${g.name} to Default`);
+            }
             await updateRepoJson('groups', (all) => {
               const i = all.findIndex((y) => y && y.id === g.id);
               if (i >= 0) all.splice(i, 1);
@@ -516,7 +524,34 @@ function adminView(app) {
     });
   }
 
-  function renderPuzzles(puzzles, users, saves, imgs = {}) {
+  // Which groups see a puzzle. All groups unless some are picked.
+  function showToControls(p, groups) {
+    const chosen = Array.isArray(p.groups) ? p.groups.filter((id) => groups.some((g) => g.id === id)) : [];
+    const names = chosen.map((id) => groups.find((g) => g.id === id).name);
+    const summary = el('summary', { textContent: '👥 Shown to: ' + (chosen.length ? names.join(', ') : 'All groups') });
+    const all = el('input', { type: 'checkbox', checked: !chosen.length });
+    const boxes = groups.map((g) => el('input', { type: 'checkbox', value: g.id, checked: chosen.includes(g.id) }));
+    all.onchange = () => all.checked && boxes.forEach((b) => (b.checked = false));
+    boxes.forEach((b) => (b.onchange = () => (all.checked = !boxes.some((x) => x.checked))));
+    const save = el('button', { className: 'primary', textContent: 'Save' });
+    save.onclick = () => doSave(save, async () => {
+      const ids = boxes.filter((b) => b.checked).map((b) => b.value);
+      await updateRepoJson('puzzles', (list) => {
+        const x = list.find((y) => y.id === p.id);
+        if (!x) throw new Error('That puzzle is no longer in the game.');
+        if (ids.length) x.groups = ids;
+        else delete x.groups;
+      }, `Show puzzle ${p.id} to ${ids.length ? groups.filter((g) => ids.includes(g.id)).map((g) => g.name).join(', ') : 'all groups'}`);
+      saved(ids.length ? 'Saved. Only the chosen groups see this puzzle.' : 'Saved. All groups see this puzzle.');
+      refresh();
+    });
+    return el('details', { className: 'show-to' }, summary,
+      el('label', { className: 'inline' }, all, ' All groups'),
+      ...groups.map((g, i) => el('label', { className: 'inline' }, boxes[i], ' ' + g.name)),
+      el('div', { className: 'row' }, save));
+  }
+
+  function renderPuzzles(puzzles, users, saves, imgs = {}, groups = withDefaultGroup([])) {
     const list = $('#a-puzzles');
     list.replaceChildren();
     if (!puzzles.length) list.append(el('li', { className: 'empty', textContent: 'No puzzles yet.' }));
@@ -543,6 +578,7 @@ function adminView(app) {
       p.type === 'photo' ? el('div', { className: 'meta', textContent: `🧩 Arrange the photo · ${(p.grid === 3 ? 9 : 4)} pieces` }) : null,
       p.type === 'word' ? el('div', { className: 'meta', textContent: `🔤 Guess the word · ${p.length} letters · reward ${p.length - 1} jewels` }) : null,
         el('div', { className: 'meta', textContent: `By ${puzzleAuthor(p, users, saves)} · ${p.addedAt || ''}` }),
+        showToControls(p, groups),
         el('div', { className: 'row' }, el('button', { textContent: 'Edit', onclick: () => submit(p) }), del),
         moveControls(p, n, puzzles.length)));
     });
