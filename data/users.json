@@ -86,7 +86,8 @@
     "salt": "ffdf478f178611ab17bf1c9b922ba82b",
     "hash": "ec674dd3d0c9c9b41eba8fd77223ee6f24f1429cc85916ffcaae1c2e2e6a84ac",
     "status": "active",
-    "joinedAt": "2026-11-28"
+    "joinedAt": "2026-11-28",
+    "group": "g-mx0qcr3b"
   },
   {
     "username": "nwaf",
