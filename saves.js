@@ -312,10 +312,16 @@ function solveReward(entry, id) {
   return Math.max(0, 2 - ((entry.misses || {})[id] || 0)) + ((entry.extra || {})[id] || 0);
 }
 
+const WORDLE_COST = 1;
+const WORDLE_REWARD = 2;
+const WORDLE_LENGTHS = [3, 4, 6, 7];
+
 function savedJewels(entry, gifts = 0) {
   if (!entry) return gifts * PUZZLE_GIFT;
   const earned = (entry.solved || []).reduce((sum, id) => sum + solveReward(entry, id), 0);
-  return earned - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST + gifts * PUZZLE_GIFT;
+  const w = entry.wordle || {}; // "العب كلمات": each word costs 1, solving it gives 2
+  return earned - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST + gifts * PUZZLE_GIFT
+    + (w.won || 0) * WORDLE_REWARD - (w.bought || 0) * WORDLE_COST;
 }
 
 // ---------- leaderboard ----------
