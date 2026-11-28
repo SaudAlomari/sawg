@@ -420,15 +420,17 @@
     "options": [],
     "hints": [],
     "answerHashes": [
-      "828d3ceaf84028e08dde4a52f0fe3547cbfe07b80c9202b91eea545bb3c1756b",
-      "6c8d532ec81ffa33499460349eaeef43e38da47640ceb4b7c7bae5ff7fc449ff",
-      "8e4bb2020029de2f8b862da9f5ba03bc28da6e7b9771b26fc978f0e4702a24c4"
+      "db33d7b519c6947e4f6fa9d38483f6f9e3a495a38b9fc81184353b4909812f22",
+      "154254db3ee608bf3fb812df9f66ca9267dbd83e891003a553bd4edd44712b7e",
+      "9445c935ddc367378f73c8a41fb39be5ac93681718eb702704b7631dd88f178e",
+      "c4a64923f3d950210ed23adaf8505a957c1b71bdefa52fc60f84a6bd6012e3c9"
     ],
     "image": null,
     "answerImage": null,
     "author": "سعود",
     "by": "saud",
-    "addedAt": "2026-11-22"
+    "addedAt": "2026-11-22",
+    "editedAt": "2026-11-28"
   },
   {
     "id": "p-mwseuyo15faf",
