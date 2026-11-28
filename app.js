@@ -16,6 +16,13 @@ function myGroup() {
   return groupOf(users.find((u) => u.username === me.username) || me, groups);
 }
 
+// The puzzles I can play: the ones shown to my group. The admin sees them all.
+function myPuzzles() {
+  if (me.admin) return puzzles;
+  const g = myGroup();
+  return puzzles.filter((p) => puzzleShownTo(p, g));
+}
+
 function mount(id) {
   app.replaceChildren(document.getElementById(id).content.cloneNode(true));
 }
@@ -276,6 +283,7 @@ function play() {
   mount('t-play');
   const $ = (s) => app.querySelector(s);
   const progress = loadProgress();
+  const puzzles = myPuzzles(); // only my group's puzzles
   const done = new Set([...progress.solved, ...progress.skipped]);
   const doneCount = puzzles.filter((p) => done.has(p.id)).length;
   // A postponed puzzle waits until 3 more puzzles are done (or nothing else is left).
@@ -334,7 +342,7 @@ function play() {
     // Check for new puzzles; if some arrived, show the next one.
     const before = puzzles.length;
     refreshData().then(() => {
-      if (puzzles.length !== before && (location.hash.slice(1) || 'play') === 'play' && app.querySelector('#done')) play();
+      if (myPuzzles().length !== before && (location.hash.slice(1) || 'play') === 'play' && app.querySelector('#done')) play();
     });
     return;
   }
