@@ -37,10 +37,11 @@ function loadProgress() {
       if (!p.misses || typeof p.misses !== 'object') p.misses = {};
       if (!p.extra || typeof p.extra !== 'object') p.extra = {};
       if (!p.word || typeof p.word !== 'object') p.word = {};
+      if (!p.wordle || typeof p.wordle !== 'object') p.wordle = {};
       return p;
     }
   } catch {}
-  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {}, extra: {}, word: {} };
+  return { solved: [], skipped: [], hinted: [], postponed: {}, postpones: 0, misses: {}, extra: {}, word: {}, wordle: {} };
 }
 
 // Jewels: +2 for each solved puzzle (multiple choice: 2 on the first try,
@@ -68,7 +69,7 @@ let pending = null;
 async function uploadProgress(p) {
   const cfg = savesConfig(settings);
   if (!cfg || !me) return;
-  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, extra: p.extra || {}, word: p.word || {}, current: p.current || null } };
+  pending = { username: me.username, progress: { solved: p.solved, skipped: p.skipped, hinted: p.hinted, postponed: p.postponed || {}, postpones: p.postpones || 0, misses: p.misses || {}, extra: p.extra || {}, word: p.word || {}, wordle: p.wordle || {}, current: p.current || null } };
   if (uploading) return;
   uploading = true;
   while (pending) {
@@ -96,7 +97,7 @@ async function syncDown() {
     saves = data;
     me = { ...me, displayName: displayNameOf(me.username, users, saves) };
     const saved = data[me.username];
-    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, extra: saved.extra || {}, word: saved.word || {}, current: saved.current || null });
+    if (saved) saveLocal({ solved: saved.solved || [], skipped: saved.skipped || [], hinted: saved.hinted || [], postponed: saved.postponed || {}, postpones: saved.postpones || 0, misses: saved.misses || {}, extra: saved.extra || {}, word: saved.word || {}, wordle: saved.wordle || {}, current: saved.current || null });
     else {
       const local = loadProgress();
       if (local.solved.length || local.skipped.length) await uploadProgress(local);
@@ -120,7 +121,7 @@ function remember(username) {
 
 // ---------- routing ----------
 
-const views = { play, submit, leaderboard: leaderboardView, profile, admin: () => adminView(app) };
+const views = { play, words: wordsPage, submit, leaderboard: leaderboardView, profile, admin: () => adminView(app) };
 
 function route() {
   const nav = document.getElementById('nav');
@@ -860,7 +861,7 @@ function profile() {
   };
   choice($('#pr-anon'), $('#pr-anon-msg'), 'anonymous', 'تم ✓ تظهر في لوحة المتصدرين باسم "مجهول".', 'تم ✓ يظهر اسمك في لوحة المتصدرين.');
   choice($('#pr-hide'), $('#pr-hide-msg'), 'hideFromBoard', 'تم ✓ لن تظهر في لوحة المتصدرين.', 'تم ✓ عدت إلى لوحة المتصدرين.');
-  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر، وتأجيل اللغز جوهرة واحدة.';
+  $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر، وتأجيل اللغز جوهرة واحدة. في "العب كلمات" كل كلمة بجوهرة، وحلّها يعطيك جوهرتين.';
 
   const list = $('#pr-puzzles');
   if (!mine.length) list.append(el('li', { className: 'empty muted', textContent: 'لم يُقبل لك لغز بعد. أضف لغزًا من صفحة "أضف لغزًا".' }));
@@ -998,6 +999,83 @@ loadData()
   })
   .catch((e) => app.replaceChildren(el('p', { className: 'error', textContent: e.message })));
 
+// ---------- "العب كلمات": a word for 1 jewel ----------
+// Each word costs WORDLE_COST; solving it gives WORDLE_REWARD whatever its
+// length (3, 4, 6 or 7 letters, picked at random). progress.wordle =
+// { bought, won, cur } where cur is the word in play (scrambled), so leaving
+// the page or reloading keeps the same word and doesn't charge again.
+function wordsPage() {
+  mount('t-words');
+  const $ = (s) => app.querySelector(s);
+  const progress = loadProgress();
+  const w = progress.wordle;
+  const fb = $('#w-feedback');
+  const err = $('#w-error');
+  const buy = $('#w-buy');
+  const game = $('#w-game');
+  const show = () => {
+    $('#w-jewels').textContent = `💎 ${jewels(progress)}`;
+    $('#w-stats').textContent = `✅ حللت ${w.won || 0} من ${w.bought || 0}`;
+  };
+  const finish = () => {
+    w.cur = null;
+    saveProgress(progress);
+    show();
+    buy.hidden = false;
+  };
+  const lengthOf = (cur) => {
+    try {
+      return wordLetters(revealKey(cur.s)).length;
+    } catch {
+      return 0;
+    }
+  };
+  const start = (cur) => {
+    buy.hidden = true;
+    showMsg(err, '');
+    const anchor = el('div');
+    game.replaceChildren(anchor);
+    wordGame({ id: 'wordle', length: lengthOf(cur) }, false, progress, anchor, fb, () => {
+      w.won = (w.won || 0) + 1;
+      fb.hidden = false;
+      fb.className = 'feedback ok';
+      fb.textContent = `✅ أحسنت! +${WORDLE_REWARD} 💎`;
+      finish();
+    }, {
+      saved: cur,
+      reward: WORDLE_REWARD,
+      save: (state) => {
+        w.cur = state;
+        saveProgress(progress);
+      },
+      onLose: finish,
+    });
+  };
+
+  buy.onclick = async () => {
+    showMsg(err, '');
+    if (jewels(progress) < WORDLE_COST) return showMsg(err, 'ليس لديك جواهر كافية. حلّ ألغازًا في صفحة "العب" لتكسب جواهر.');
+    buy.disabled = true;
+    const list = await loadWords().catch(() => []);
+    buy.disabled = false;
+    if (!buy.isConnected || w.cur) return;
+    const lengths = WORDLE_LENGTHS.filter((n) => list.some((x) => wordLetters(x).length === n));
+    if (!lengths.length) return showMsg(err, 'لا توجد كلمات في القاموس بعد.');
+    const n = lengths[Math.floor(Math.random() * lengths.length)];
+    const pool = list.filter((x) => wordLetters(x).length === n);
+    w.bought = (w.bought || 0) + 1;
+    w.cur = { s: hideKey(pool[Math.floor(Math.random() * pool.length)]), g: [] };
+    fb.hidden = true;
+    saveProgress(progress);
+    show();
+    start(w.cur);
+  };
+
+  show();
+  if (w.cur && Array.isArray(w.cur.g) && WORDLE_LENGTHS.includes(lengthOf(w.cur))) start(w.cur);
+  else w.cur = null;
+}
+
 // ---------- guess the word ----------
 
 function wordLength(p) {
@@ -1013,7 +1091,9 @@ const WORD_KEYS = [
 // A random word of the puzzle's length; 6 tries; after 6 misses the player
 // starts again with a new word. The word in play is kept in the progress
 // (lightly scrambled) so reloading doesn't give a new one.
-function wordGame(p, practice, progress, before, fb, onWin) {
+// opts (the paid word game page): saved = the word in play, save(state)
+// keeps it, onLose() instead of the free "new word" button, intro text.
+function wordGame(p, practice, progress, before, fb, onWin, opts = {}) {
   const n = wordLength(p);
   const box = el('div', { className: 'word-game' });
   const grid = el('div', { className: 'word-grid' });
@@ -1022,7 +1102,7 @@ function wordGame(p, practice, progress, before, fb, onWin) {
   const again = el('button', { type: 'button', className: 'primary', textContent: '🔄 كلمة جديدة', hidden: true });
   box.append(grid, again, keys);
   before.before(
-    el('p', { className: 'muted small', textContent: `خمّن الكلمة المكونة من ${n} أحرف. لديك ${WORD_GUESSES} محاولات. 🟩 الحرف في مكانه · 🟧 الحرف في الكلمة بمكان آخر · ⬛ الحرف ليس في الكلمة. المكافأة: ${n - 1} 💎` }),
+    el('p', { className: 'muted small', textContent: `خمّن الكلمة المكونة من ${n} أحرف. لديك ${WORD_GUESSES} محاولات. 🟩 الحرف في مكانه · 🟧 الحرف في الكلمة بمكان آخر · ⬛ الحرف ليس في الكلمة. المكافأة: ${opts.reward != null ? opts.reward : n - 1} 💎` }),
     box,
   );
   grid.textContent = '⏳';
@@ -1040,6 +1120,7 @@ function wordGame(p, practice, progress, before, fb, onWin) {
   };
   const save = () => {
     if (practice) return;
+    if (opts.save) return opts.save(state);
     progress.word[p.id] = state;
     saveProgress(progress);
   };
@@ -1089,6 +1170,11 @@ function wordGame(p, practice, progress, before, fb, onWin) {
 
   const lost = () => {
     over = true;
+    keys.hidden = true;
+    if (opts.onLose) {
+      say(`❌ انتهت المحاولات. الكلمة كانت: ${secret()}`);
+      return opts.onLose();
+    }
     say(`❌ انتهت المحاولات. الكلمة كانت: ${secret()}. جرّب كلمة جديدة!`);
     again.hidden = false;
   };
@@ -1140,7 +1226,7 @@ function wordGame(p, practice, progress, before, fb, onWin) {
   loadWords().then((list) => {
     words = list;
     if (!box.isConnected) return;
-    const saved = !practice && progress.word[p.id];
+    const saved = opts.saved || (!practice && progress.word[p.id]);
     state = saved && Array.isArray(saved.g) ? saved : null;
     try {
       if (state && wordLetters(revealKey(state.s)).length !== n) state = null; // the admin changed the length

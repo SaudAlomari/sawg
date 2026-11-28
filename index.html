@@ -7,13 +7,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
   <header class="top">
     <a href="#play" class="brand">ألغاز العيلة الحبيبة</a>
     <nav id="nav" hidden>
       <a href="#play">العب</a>
+      <a href="#words">العب كلمات</a>
       <a href="#submit">أضف لغزًا</a>
       <a href="#leaderboard">المتصدرون</a>
       <a href="#admin" id="nav-admin" lang="en" hidden>Admin</a>
@@ -92,6 +93,18 @@
       </div>
     </section>
     <p class="muted small center" id="save-note">يُحفظ تقدمك على هذا الجهاز.</p>
+  </template>
+
+  <template id="t-words">
+    <section class="card">
+      <div class="progress"><span id="w-stats"></span><span class="jewels" id="w-jewels" title="جواهرك"></span></div>
+      <h2>العب كلمات</h2>
+      <p class="muted small">كل كلمة تكلّف جوهرة واحدة، وطولها يُختار عشوائيًا: ٣ أو ٤ أو ٦ أو ٧ أحرف. إذا حللتها تحصل على جوهرتين.</p>
+      <div id="w-game"></div>
+      <p id="w-feedback" class="feedback" hidden></p>
+      <p class="error" id="w-error" hidden></p>
+      <button type="button" class="primary" id="w-buy">🎲 كلمة جديدة (١ 💎)</button>
+    </section>
   </template>
 
   <template id="t-submit">
@@ -267,13 +280,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 28</p>
+      <p class="muted small">Site version 29</p>
     </section>
   </template>
 
-  <script src="common.js?v=27"></script>
-  <script src="saves.js?v=27"></script>
-  <script src="admin.js?v=27"></script>
-  <script src="app.js?v=27"></script>
+  <script src="common.js?v=28"></script>
+  <script src="saves.js?v=28"></script>
+  <script src="admin.js?v=28"></script>
+  <script src="app.js?v=28"></script>
 </body>
 </html>
