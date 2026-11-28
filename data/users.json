@@ -62,7 +62,8 @@
     "salt": "e5c3a03f7348df2abe8e0eb2a664e766",
     "hash": "28dd9d36c1a7a02a725c13894df30e889fd6890386add6f8ab3dc5235561a763",
     "status": "active",
-    "joinedAt": "2026-11-25"
+    "joinedAt": "2026-11-25",
+    "group": "g-mx0qcjfs"
   },
   {
     "username": "bsnt",
