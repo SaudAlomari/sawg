@@ -8,7 +8,13 @@ let puzzles = [];
 let me = null;
 let settings = {};
 let saves = {}; // usersSavedData.json: progress and profile names
+let groups = withDefaultGroup([]); // data/groups.json (see saves.js)
 let adminPick = null; // the admin tapped a dot: play this puzzle next
+
+// My group, from the latest users.json (the admin may have moved me).
+function myGroup() {
+  return groupOf(users.find((u) => u.username === me.username) || me, groups);
+}
 
 function mount(id) {
   app.replaceChildren(document.getElementById(id).content.cloneNode(true));
@@ -237,6 +243,7 @@ async function createAdmin(username, password, salt, err) {
       status: 'active',
       admin: true,
       joinedAt: new Date().toISOString().slice(0, 10),
+      group: DEFAULT_GROUP,
     };
     await updateRepoJson('users', (all) => {
       if (all.length) throw new Error('Someone has already signed up as the admin. Please reload the page.');
@@ -333,7 +340,7 @@ function play() {
 
   // The admin jumps around, so show where this puzzle sits in the list.
   $('#p-count').textContent = `اللغز ${me.admin ? puzzles.indexOf(p) + 1 : doneCount + 1} من ${puzzles.length}` + (practice ? ' · تجربة بدون جواهر' : '');
-  $('#p-author').textContent = 'من: ' + puzzleAuthor(p, users, saves);
+  $('#p-author').textContent = 'من: ' + puzzleAuthor(p, users, saves, me, groups);
   $('#p-question').textContent = p.question;
   if (p.image && p.type !== 'photo') {
     $('#p-image').src = p.image;
@@ -900,10 +907,11 @@ function profile() {
 // Fetch the latest players, puzzles and saves (new puzzles may have been added).
 async function refreshData() {
   try {
-    const [u, p, s] = await loadData();
+    const [u, p, s, g] = await loadData();
     users = u;
     puzzles = p;
     settings = s || {};
+    groups = withDefaultGroup(g);
   } catch {}
   const cfg = savesConfig(settings);
   if (cfg) {
@@ -914,13 +922,25 @@ async function refreshData() {
 }
 
 async function leaderboardView() {
+  const was = app.querySelector('#board-group');
+  const keep = was && was.value;
   mount('t-leaderboard');
+  if (keep) app.querySelector('#board-group').dataset.keep = keep;
   const board = app.querySelector('#board');
   await refreshData();
   if (location.hash !== '#leaderboard') return; // they moved on while it loaded
   // My own progress on this device is the freshest.
   const mineNow = { ...saves, [me.username]: { ...saves[me.username], ...loadProgress() } };
-  const all = leaderboard(users, puzzles, mineNow);
+  // Each group has its own leaderboard. The admin can look at any group's.
+  const pickGroup = app.querySelector('#board-group');
+  if (me.admin && !pickGroup.options.length) {
+    const want = pickGroup.dataset.keep || myGroup();
+    pickGroup.append(...groups.map((g) => el('option', { value: g.id, textContent: g.name, selected: g.id === want })));
+    app.querySelector('#board-group-box').hidden = groups.length < 2;
+    pickGroup.onchange = leaderboardView;
+  }
+  const group = me.admin && pickGroup.value ? pickGroup.value : myGroup();
+  const all = leaderboard(users, puzzles, mineNow, group, groups);
   // Players who left the leaderboard don't show or take a rank.
   const rows = all.filter((r) => !r.hidden);
   board.replaceChildren();
@@ -952,22 +972,24 @@ async function leaderboardView() {
 async function loadData() {
   if (getKey()) {
     try {
-      const [u, p, s] = await Promise.all([readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings')]);
-      return [u.data, p.data, s.data];
+      const [u, p, s, g] = await Promise.all([readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings'), readRepoJson('groups')]);
+      return [u.data, p.data, s.data, g.data];
     } catch {}
   }
   return Promise.all([
     loadJson('data/users.json'),
     loadJson('data/puzzles.json'),
     loadJson('data/settings.json').catch(() => ({})),
+    loadJson('data/groups.json').catch(() => []),
   ]);
 }
 
 loadData()
-  .then(async ([u, p, s]) => {
+  .then(async ([u, p, s, g]) => {
     users = u;
     puzzles = p;
     settings = s || {};
+    groups = withDefaultGroup(g);
     let saved = null;
     try { saved = localStorage.getItem('sawg-user'); } catch {}
     me = users.find((x) => x.username === saved && x.status === 'active') || null;

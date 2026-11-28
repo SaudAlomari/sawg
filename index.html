@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
   <header class="top">
@@ -196,6 +196,7 @@
   <template id="t-leaderboard">
     <section class="card narrow">
       <h2>🏆 المتصدرون</h2>
+      <label lang="en" dir="ltr" class="small" id="board-group-box" hidden>Group (only you see this) <select id="board-group"></select></label>
       <p class="muted small">الترتيب حسب عدد الألغاز المحلولة، ثم الجواهر. ✅ ألغاز محلولة · 💎 جواهر · 🧩 ألغاز له في اللعبة</p>
       <ol class="board" id="board"><li class="muted">جارٍ التحميل…</li></ol>
       <p class="muted small" id="board-hidden" hidden></p>
@@ -221,12 +222,21 @@
       <div class="tabs">
         <button data-admin-tab="users" class="active">Users <span class="badge" id="signup-count"></span></button>
         <button data-admin-tab="pending">Pending <span class="badge" id="pending-count"></span></button>
+        <button data-admin-tab="groups">Groups</button>
         <button data-admin-tab="puzzles">Puzzles</button>
         <button data-admin-tab="words">Word dictionary</button>
       </div>
       <p class="success" id="saved" hidden></p>
       <ul id="a-users" class="list"></ul>
       <ul id="a-pending" class="list" hidden></ul>
+      <div id="a-groups" hidden>
+        <p class="muted small">Each group has its own leaderboard, and players only see people from their own group. Puzzles by someone in another group show the maker as "Other Group User". Players never see group names. New players join the Default group; move them in the Users tab.</p>
+        <form id="g-form" class="row">
+          <input name="name" placeholder="New group name" maxlength="40" required autocomplete="off">
+          <button type="submit" class="primary">Add group</button>
+        </form>
+        <ul id="g-list" class="list"></ul>
+      </div>
       <ul id="a-puzzles" class="list" hidden></ul>
       <div id="a-words" hidden>
         <form id="w-form">
@@ -257,13 +267,13 @@
       <label>Saves key <input id="saves-key" type="password" autocomplete="off" placeholder="github_pat_… (only for the saves repo)"></label>
       <div class="row"><button id="saves-save">Save</button></div>
       <p><button id="forget" class="link">Remove GitHub key from this device</button></p>
-      <p class="muted small">Site version 27</p>
+      <p class="muted small">Site version 28</p>
     </section>
   </template>
 
-  <script src="common.js?v=26"></script>
-  <script src="saves.js?v=26"></script>
-  <script src="admin.js?v=26"></script>
-  <script src="app.js?v=26"></script>
+  <script src="common.js?v=27"></script>
+  <script src="saves.js?v=27"></script>
+  <script src="admin.js?v=27"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>

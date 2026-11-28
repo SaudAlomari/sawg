@@ -203,6 +203,7 @@ function adminView(app) {
     $('#a-puzzles').hidden = name !== 'puzzles';
     $('#a-pending').hidden = name !== 'pending';
     $('#a-words').hidden = name !== 'words';
+    $('#a-groups').hidden = name !== 'groups';
   };
   app.querySelectorAll('[data-admin-tab]').forEach((b) => (b.onclick = () => showTab(b.dataset.adminTab)));
   showTab(adminTab);
@@ -326,9 +327,10 @@ function adminView(app) {
 
   async function refresh() {
     try {
-      const [{ data: users }, { data: puzzles }, { data: settings }] = await Promise.all([
-        readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings'),
+      const [{ data: users }, { data: puzzles }, { data: settings }, { data: groupList }] = await Promise.all([
+        readRepoJson('users'), readRepoJson('puzzles'), readRepoJson('settings'), readRepoJson('groups'),
       ]);
+      const groups = withDefaultGroup(groupList);
       const cfg = savesConfig(settings);
       lastCfg = cfg;
       lastPuzzles = puzzles;
@@ -336,7 +338,8 @@ function adminView(app) {
         ? await Promise.all([readSaves(cfg).then((r) => r.data).catch(() => null), readSaves(cfg, SIGNUPS_FILE).then((r) => r.data).catch(() => ({}))])
         : [null, {}];
       if (!$('#a-users')) return; // left the admin page meanwhile
-      renderUsers(users, saves, puzzles, signups, cfg);
+      renderUsers(users, saves, puzzles, signups, cfg, groups);
+      renderGroups(groups, users, saves);
       const imgs = await listFolder((p) => gh(`${p}?ref=${SAWG.branch}`), 'images');
       if (!$('#a-puzzles')) return;
       renderPuzzles(puzzles, users, saves, imgs || {});
@@ -382,7 +385,95 @@ function adminView(app) {
     ]));
   }
 
-  function renderUsers(users, saves, puzzles, signups, cfg) {
+  // ----- groups -----
+
+  $('#g-form').onsubmit = (e) => {
+    e.preventDefault();
+    const name = e.target.name.value.trim().slice(0, 40);
+    if (!name) return;
+    doSave(e.target.querySelector('[type=submit]'), async () => {
+      await updateRepoJson('groups', (all) => {
+        if (withDefaultGroup(all).some((g) => g.name.toLowerCase() === name.toLowerCase())) throw new Error(`There is already a group called "${name}".`);
+        if (!all.some((g) => g && g.id === DEFAULT_GROUP)) all.unshift({ id: DEFAULT_GROUP, name: 'Default' });
+        all.push({ id: 'g-' + Date.now().toString(36), name, createdAt: new Date().toISOString().slice(0, 10) });
+      }, `Add group ${name}`);
+      e.target.name.value = '';
+      saved(`Group "${name}" added. Move players into it in the Users tab.`);
+      refresh();
+    });
+  };
+
+  function renderGroups(groups, users, saves) {
+    const list = $('#g-list');
+    list.replaceChildren();
+    groups.forEach((g) => {
+      const members = users.filter((u) => groupOf(u, groups) === g.id);
+      const rename = el('button', { textContent: 'Rename' });
+      rename.onclick = () => {
+        const name = (prompt('New name for this group:', g.name) || '').trim().slice(0, 40);
+        if (!name || name === g.name) return;
+        doSave(rename, async () => {
+          await updateRepoJson('groups', (all) => {
+            if (withDefaultGroup(all).some((x) => x.id !== g.id && x.name.toLowerCase() === name.toLowerCase())) throw new Error(`There is already a group called "${name}".`);
+            const x = all.find((y) => y && y.id === g.id);
+            if (x) x.name = name;
+            else all.unshift({ id: g.id, name }); // the default group, named for the first time
+          }, `Rename group ${g.name} to ${name}`);
+          saved('Group renamed.');
+          refresh();
+        });
+      };
+      const row = el('div', { className: 'row' }, rename);
+      if (g.id !== DEFAULT_GROUP) {
+        const del = el('button', { textContent: 'Delete', className: 'link' });
+        del.onclick = () => {
+          if (!confirm(`Delete the group "${g.name}"?` + (members.length ? ` Its ${members.length} player(s) move to the Default group.` : ''))) return;
+          doSave(del, async () => {
+            if (members.length) {
+              await updateRepoJson('users', (all) => all.forEach((u) => {
+                if (u.group === g.id) u.group = DEFAULT_GROUP;
+              }), `Move players of group ${g.name} to Default`);
+            }
+            await updateRepoJson('groups', (all) => {
+              const i = all.findIndex((y) => y && y.id === g.id);
+              if (i >= 0) all.splice(i, 1);
+            }, `Delete group ${g.name}`);
+            saved('Group deleted.');
+            refresh();
+          });
+        };
+        row.append(del);
+      }
+      list.append(el('li', {},
+        el('strong', { textContent: g.name }), ' ',
+        g.id === DEFAULT_GROUP ? el('span', { className: 'status approved', textContent: 'default' }) : null,
+        el('div', { className: 'meta', textContent: `${members.length} player${members.length === 1 ? '' : 's'}` + (members.length ? ': ' + members.map((u) => displayNameOf(u.username, users, saves)).join(', ') : '') }),
+        row));
+    });
+  }
+
+  function groupPicker(u, groups, name) {
+    const pick = el('select', { title: 'Group' },
+      ...groups.map((g) => el('option', { value: g.id, textContent: g.name, selected: g.id === groupOf(u, groups) })));
+    // Not doSave: that would replace the dropdown's options with "Saving…".
+    pick.onchange = async () => {
+      const to = groups.find((g) => g.id === pick.value);
+      pick.disabled = true;
+      try {
+        await updateRepoJson('users', (all) => {
+          const x = all.find((y) => y.username === u.username);
+          if (x) x.group = pick.value;
+        }, `Move user ${u.username} to group ${to ? to.name : pick.value}`);
+        saved(`${name} is now in ${to ? to.name : 'that group'}.`);
+      } catch (e) {
+        alert(e.message);
+      }
+      refresh();
+    };
+    return el('label', { className: 'inline small' }, 'Group: ', pick);
+  }
+
+  function renderUsers(users, saves, puzzles, signups, cfg, groups) {
     const list = $('#a-users');
     list.replaceChildren();
     const waiting = Object.values(signups || {}).sort((x, y) => String(x.requestedAt).localeCompare(String(y.requestedAt)));
@@ -416,6 +507,7 @@ function adminView(app) {
         };
         row.append(toggle, del);
       }
+      row.append(groupPicker(u, groups, displayNameOf(u.username, users, saves)));
       list.append(el('li', {},
         el('strong', { textContent: displayNameOf(u.username, users, saves) }), ' ',
         el('span', { className: 'status ' + (active ? 'approved' : 'rejected'), textContent: u.admin ? 'admin' : u.status }),
@@ -558,6 +650,7 @@ function adminView(app) {
           hash: u.hash,
           status: 'active',
           joinedAt: new Date().toISOString().slice(0, 10),
+          group: DEFAULT_GROUP,
         });
       }, `Activate user ${u.username}`);
       await updateSaves(cfg, (all) => delete all[u.username], `Done with sign-up ${u.username}`, SIGNUPS_FILE);
