@@ -214,6 +214,31 @@ function b64FromBytes(bytes) {
   return btoa(bin);
 }
 
+// ---------- groups ----------
+// The admin puts players in groups (data/groups.json: [{ id, name }]; each
+// user in users.json has a "group" id). Every group has its own leaderboard,
+// and players only see people from their own group. Players never see group
+// names. The default group always exists and can't be deleted; new players
+// join it, and anyone without a group (or whose group was deleted) is in it.
+
+const DEFAULT_GROUP = 'default';
+const OTHER_GROUP_NAME = 'Other Group User';
+
+// The groups list, always with the default group first.
+function withDefaultGroup(groups) {
+  const list = (Array.isArray(groups) ? groups : []).filter((g) => g && g.id);
+  const def = list.find((g) => g.id === DEFAULT_GROUP) || { id: DEFAULT_GROUP, name: 'Default' };
+  return [def, ...list.filter((g) => g.id !== DEFAULT_GROUP)];
+}
+
+// A user's group id. groups (optional) is used to spot deleted groups.
+function groupOf(u, groups) {
+  const id = u && u.group;
+  if (!id) return DEFAULT_GROUP;
+  if (Array.isArray(groups) && groups.length && !groups.some((g) => g.id === id)) return DEFAULT_GROUP;
+  return id;
+}
+
 // ---------- names and jewels ----------
 
 const PUZZLE_GIFT = 1; // jewels for each of your puzzles that is in the game
@@ -233,8 +258,16 @@ function displayNameOf(username, users, saves) {
   return u ? u.displayName : username;
 }
 
-function puzzleAuthor(p, users, saves) {
+// viewer: the player looking at it. Players only see the names of people in
+// their own group; a puzzle by someone in another group shows OTHER_GROUP_NAME.
+// The admin always sees the real name.
+function puzzleAuthor(p, users, saves, viewer = null, groups = null) {
   const owner = ownerOf(p, users);
+  if (owner && viewer && !viewer.admin) {
+    const u = users.find((x) => x.username === owner);
+    const v = users.find((x) => x.username === viewer.username) || viewer;
+    if (u && groupOf(u, groups) !== groupOf(v, groups)) return OTHER_GROUP_NAME;
+  }
   return owner ? displayNameOf(owner, users, saves) : p.author;
 }
 
@@ -288,10 +321,11 @@ function savedJewels(entry, gifts = 0) {
 // ---------- leaderboard ----------
 // Ranked by puzzles solved, then jewels. Players can hide their name.
 
-function leaderboard(users, puzzles, saves) {
+// group (optional): only the players in that group.
+function leaderboard(users, puzzles, saves, group = null, groups = null) {
   const live = new Set(puzzles.map((p) => p.id));
   return users
-    .filter((u) => u.status === 'active')
+    .filter((u) => u.status === 'active' && (!group || groupOf(u, groups) === group))
     .map((u) => {
       const entry = (saves && saves[u.username]) || {};
       return {
