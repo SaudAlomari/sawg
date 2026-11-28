@@ -874,6 +874,7 @@ function profile() {
   $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر، وتأجيل اللغز جوهرة واحدة. في "العب كلمات" كل كلمة بجوهرة، وحلّها يعطيك جوهرتين.';
   const taken = Number((saves[me.username] || {}).deducted) || 0;
   if (taken > 0) $('#pr-jewels-why').textContent += ` خصم المشرف من جواهرك ${taken} 💎.`;
+  if (taken < 0) $('#pr-jewels-why').textContent += ` أهداك المشرف ${-taken} 💎.`;
 
   const list = $('#pr-puzzles');
   if (!mine.length) list.append(el('li', { className: 'empty muted', textContent: 'لم يُقبل لك لغز بعد. أضف لغزًا من صفحة "أضف لغزًا".' }));

@@ -460,26 +460,37 @@ function adminView(app) {
     });
   }
 
-  // Take jewels away from a player. Kept as a running total ("deducted") in
-  // their saved data; a minus number gives jewels back.
-  function deductButton(u, cfg, name) {
-    const b = el('button', { textContent: '➖ Deduct jewels' });
-    b.onclick = () => {
-      const typed = prompt(`How many jewels to take from ${name}?\n(To give some back, type a minus number, like -3.)`, '1');
+  // Take jewels from a player, or give them some. Kept as one running total
+  // ("deducted") in their saved data: above 0 means taken, below 0 means given.
+  function jewelButtons(u, cfg, name) {
+    const ask = (b, give) => {
+      const typed = prompt(give ? `How many jewels to give ${name}?` : `How many jewels to take from ${name}?\n(A minus number, like -3, gives jewels instead.)`, give ? '10' : '1');
       if (typed == null) return;
-      const n = Math.trunc(Number(String(typed).trim().replace(/[٠-٩]/g, (d) => d.charCodeAt(0) - 0x660)));
+      const clean = String(typed).trim().replace(/[\u2212\u2013\u2014\uFE63\uFF0D]/g, '-').replace(/[٠-٩]/g, (d) => d.charCodeAt(0) - 0x660);
+      let n = Math.trunc(Number(clean));
       if (!n || !isFinite(n)) return alert('Type a whole number, like 5.');
+      if (give) n = -Math.abs(n); // "give" always adds jewels
       doSave(b, async () => {
         await updateSaves(cfg, (all) => {
           const e = all[u.username] || {};
-          e.deducted = Math.max(0, (Number(e.deducted) || 0) + n);
+          e.deducted = (Number(e.deducted) || 0) + n;
+          if (!e.deducted) delete e.deducted;
           all[u.username] = e;
-        }, `${n > 0 ? 'Deduct' : 'Give back'} ${Math.abs(n)} jewels: ${u.username}`);
-        saved(n > 0 ? `Took ${n} 💎 from ${name}.` : `Gave ${-n} 💎 back to ${name}.`);
+        }, `${n > 0 ? 'Deduct' : 'Give'} ${Math.abs(n)} jewels: ${u.username}`);
+        saved(n > 0 ? `Took ${n} 💎 from ${name}.` : `Gave ${-n} 💎 to ${name}.`);
         refresh();
       });
     };
-    return b;
+    const take = el('button', { textContent: '➖ Deduct jewels' });
+    take.onclick = () => ask(take, false);
+    const give = el('button', { textContent: '➕ Give jewels' });
+    give.onclick = () => ask(give, true);
+    return [take, give];
+  }
+
+  function adjustNote(d) {
+    d = Number(d) || 0;
+    return d > 0 ? ` (−${d} deducted by you)` : d < 0 ? ` (+${-d} given by you)` : '';
   }
 
   function groupPicker(u, groups, name) {
@@ -537,12 +548,12 @@ function adminView(app) {
         };
         row.append(toggle, del);
       }
-      if (saves && cfg) row.append(deductButton(u, cfg, displayNameOf(u.username, users, saves)));
+      if (saves && cfg) row.append(...jewelButtons(u, cfg, displayNameOf(u.username, users, saves)));
       row.append(groupPicker(u, groups, displayNameOf(u.username, users, saves)));
       list.append(el('li', {},
         el('strong', { textContent: displayNameOf(u.username, users, saves) }), ' ',
         el('span', { className: 'status ' + (active ? 'approved' : 'rejected'), textContent: u.admin ? 'admin' : u.status }),
-        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''} · ${puzzlesBy(u.username, puzzles, users).length} puzzles` + (saves ? ` · ${((saves[u.username] || {}).solved || []).length} solved · 💎 ${savedJewels(saves[u.username], puzzlesBy(u.username, puzzles, users).length)}` + ((saves[u.username] || {}).deducted ? ` (−${saves[u.username].deducted} deducted by you)` : '') : '') }),
+        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''} · ${puzzlesBy(u.username, puzzles, users).length} puzzles` + (saves ? ` · ${((saves[u.username] || {}).solved || []).length} solved · 💎 ${savedJewels(saves[u.username], puzzlesBy(u.username, puzzles, users).length)}` + adjustNote((saves[u.username] || {}).deducted) : '') }),
         row));
     });
   }

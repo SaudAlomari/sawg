@@ -328,7 +328,7 @@ function savedJewels(entry, gifts = 0) {
   const w = entry.wordle || {}; // "العب كلمات": each word costs 1, solving it gives 2
   return earned - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST + gifts * PUZZLE_GIFT
     + (w.won || 0) * WORDLE_REWARD - (w.bought || 0) * WORDLE_COST
-    - (Number(entry.deducted) || 0); // taken away by the admin
+    - (Number(entry.deducted) || 0); // taken (or, below 0, given) by the admin
 }
 
 // ---------- leaderboard ----------
