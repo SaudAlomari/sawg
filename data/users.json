@@ -105,5 +105,14 @@
     "status": "active",
     "joinedAt": "2026-11-28",
     "group": "g-mx0qcr3b"
+  },
+  {
+    "username": "omar",
+    "displayName": "omar",
+    "salt": "c68dcb3c884c9b23df7096bff04205c7",
+    "hash": "483e0905146251bb100373edcd03893f889e3cb497667587ae08c11ec111191c",
+    "status": "active",
+    "joinedAt": "2026-11-28",
+    "group": "default"
   }
 ]
