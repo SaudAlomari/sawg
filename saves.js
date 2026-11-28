@@ -327,7 +327,8 @@ function savedJewels(entry, gifts = 0) {
   const earned = (entry.solved || []).reduce((sum, id) => sum + solveReward(entry, id), 0);
   const w = entry.wordle || {}; // "العب كلمات": each word costs 1, solving it gives 2
   return earned - hintSpent(entry.hinted) - (entry.postpones || 0) * POSTPONE_COST + gifts * PUZZLE_GIFT
-    + (w.won || 0) * WORDLE_REWARD - (w.bought || 0) * WORDLE_COST;
+    + (w.won || 0) * WORDLE_REWARD - (w.bought || 0) * WORDLE_COST
+    - (Number(entry.deducted) || 0); // taken away by the admin
 }
 
 // ---------- leaderboard ----------
@@ -340,12 +341,15 @@ function leaderboard(users, puzzles, saves, group = null, groups = null) {
     .filter((u) => u.status === 'active' && (!group || groupOf(u, groups) === group))
     .map((u) => {
       const entry = (saves && saves[u.username]) || {};
+      // Only puzzles shown to the player's group count as solved.
+      const g = groupOf(u, groups);
+      const mine = new Set(puzzles.filter((p) => puzzleShownTo(p, g)).map((p) => p.id));
       return {
         username: u.username,
         name: displayNameOf(u.username, users, saves),
         anonymous: !!entry.anonymous,
         hidden: !!entry.hideFromBoard,
-        solved: (entry.solved || []).filter((id) => live.has(id)).length,
+        solved: (entry.solved || []).filter((id) => live.has(id) && mine.has(id)).length,
         live: puzzlesBy(u.username, puzzles, users).length,
         jewels: savedJewels(entry, puzzlesBy(u.username, puzzles, users).length),
       };

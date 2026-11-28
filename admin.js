@@ -460,6 +460,28 @@ function adminView(app) {
     });
   }
 
+  // Take jewels away from a player. Kept as a running total ("deducted") in
+  // their saved data; a minus number gives jewels back.
+  function deductButton(u, cfg, name) {
+    const b = el('button', { textContent: '➖ Deduct jewels' });
+    b.onclick = () => {
+      const typed = prompt(`How many jewels to take from ${name}?\n(To give some back, type a minus number, like -3.)`, '1');
+      if (typed == null) return;
+      const n = Math.trunc(Number(String(typed).trim().replace(/[٠-٩]/g, (d) => d.charCodeAt(0) - 0x660)));
+      if (!n || !isFinite(n)) return alert('Type a whole number, like 5.');
+      doSave(b, async () => {
+        await updateSaves(cfg, (all) => {
+          const e = all[u.username] || {};
+          e.deducted = Math.max(0, (Number(e.deducted) || 0) + n);
+          all[u.username] = e;
+        }, `${n > 0 ? 'Deduct' : 'Give back'} ${Math.abs(n)} jewels: ${u.username}`);
+        saved(n > 0 ? `Took ${n} 💎 from ${name}.` : `Gave ${-n} 💎 back to ${name}.`);
+        refresh();
+      });
+    };
+    return b;
+  }
+
   function groupPicker(u, groups, name) {
     const pick = el('select', { title: 'Group' },
       ...groups.map((g) => el('option', { value: g.id, textContent: g.name, selected: g.id === groupOf(u, groups) })));
@@ -515,11 +537,12 @@ function adminView(app) {
         };
         row.append(toggle, del);
       }
+      if (saves && cfg) row.append(deductButton(u, cfg, displayNameOf(u.username, users, saves)));
       row.append(groupPicker(u, groups, displayNameOf(u.username, users, saves)));
       list.append(el('li', {},
         el('strong', { textContent: displayNameOf(u.username, users, saves) }), ' ',
         el('span', { className: 'status ' + (active ? 'approved' : 'rejected'), textContent: u.admin ? 'admin' : u.status }),
-        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''} · ${puzzlesBy(u.username, puzzles, users).length} puzzles` + (saves ? ` · ${((saves[u.username] || {}).solved || []).length} solved · 💎 ${savedJewels(saves[u.username], puzzlesBy(u.username, puzzles, users).length)}` : '') }),
+        el('div', { className: 'meta', textContent: `@${u.username} · joined ${u.joinedAt || ''} · ${puzzlesBy(u.username, puzzles, users).length} puzzles` + (saves ? ` · ${((saves[u.username] || {}).solved || []).length} solved · 💎 ${savedJewels(saves[u.username], puzzlesBy(u.username, puzzles, users).length)}` + ((saves[u.username] || {}).deducted ? ` (−${saves[u.username].deducted} deducted by you)` : '') : '') }),
         row));
     });
   }

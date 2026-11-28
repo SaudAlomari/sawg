@@ -58,7 +58,9 @@ const JEWELS_PER_SOLVE = 2;
 const POSTPONE_AFTER = 3;
 const MAX_ALTS = 5; // alternative answers on top of the main one
 function jewels(progress) {
-  return savedJewels(progress, puzzlesBy(me.username, puzzles, users).length);
+  // Jewels the admin took away are kept in the account (saves), not on the device.
+  const deducted = (saves[me.username] || {}).deducted || 0;
+  return savedJewels({ ...progress, deducted }, puzzlesBy(me.username, puzzles, users).length);
 }
 function saveLocal(p) {
   try { localStorage.setItem(progressKey(), JSON.stringify(p)); } catch {}
@@ -828,7 +830,7 @@ function profile() {
   $('#pr-username').textContent = '@' + me.username;
   $('#pr-joined').textContent = me.joinedAt || '—';
   $('#pr-jewels').textContent = `💎 ${jewels(progress)}`;
-  $('#pr-solved').textContent = puzzles.filter((p) => progress.solved.includes(p.id)).length;
+  $('#pr-solved').textContent = myPuzzles().filter((p) => progress.solved.includes(p.id)).length;
   $('#pr-live').textContent = mine.length;
   $('#pr-pending').textContent = '…';
   const cfg0 = savesConfig(settings);
@@ -870,6 +872,8 @@ function profile() {
   choice($('#pr-anon'), $('#pr-anon-msg'), 'anonymous', 'تم ✓ تظهر في لوحة المتصدرين باسم "مجهول".', 'تم ✓ يظهر اسمك في لوحة المتصدرين.');
   choice($('#pr-hide'), $('#pr-hide-msg'), 'hideFromBoard', 'تم ✓ لن تظهر في لوحة المتصدرين.', 'تم ✓ عدت إلى لوحة المتصدرين.');
   $('#pr-jewels-why').textContent = 'تحصل على جوهرتين لكل لغز تحله، وجوهرة هدية لكل لغز من ألغازك يُقبل في اللعبة. التلميح الصغير يكلّف جوهرتين، والكبير ٤ جواهر، وتأجيل اللغز جوهرة واحدة. في "العب كلمات" كل كلمة بجوهرة، وحلّها يعطيك جوهرتين.';
+  const taken = Number((saves[me.username] || {}).deducted) || 0;
+  if (taken > 0) $('#pr-jewels-why').textContent += ` خصم المشرف من جواهرك ${taken} 💎.`;
 
   const list = $('#pr-puzzles');
   if (!mine.length) list.append(el('li', { className: 'empty muted', textContent: 'لم يُقبل لك لغز بعد. أضف لغزًا من صفحة "أضف لغزًا".' }));
