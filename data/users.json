@@ -70,7 +70,8 @@
     "salt": "738848eefc6cbcb191bd9fd067bfc154",
     "hash": "2897eda29ec2d43370f1d75ab107efc60699d0c1b6c77d928bc694b6b3d65ae0",
     "status": "active",
-    "joinedAt": "2026-11-25"
+    "joinedAt": "2026-11-25",
+    "group": "g-mx0qcjfs"
   },
   {
     "username": "rfeef",
